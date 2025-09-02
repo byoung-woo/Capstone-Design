@@ -5,8 +5,8 @@
 CC = gcc
 
 # 소스 파일 목록
-SRCS = src/main.c src/logger.c src/ssl_handler.c src/router.c src/response_builder.c src/db_manager.c
 
+SRCS = src/main.c src/db_manager.c src/response_builder.c src/login_handler.c src/logger.c src/ssl_handler.c src/router.c
 # 오브젝트 파일 목록 (자동 생성)
 OBJS = $(SRCS:.c=.o)
 
