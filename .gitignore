@@ -1,12 +1,2 @@
 # 민감한 인증서 파일
 certs/
-
-# 오브젝트 파일 (컴파일 중간 생성물)
-*.o
-
-# 빌드된 실행 파일
-webserver
-
-# 데이터베이스 및 로그 파일 (로컬 환경에서만 사용)
-webserver.db
-webserver.log
