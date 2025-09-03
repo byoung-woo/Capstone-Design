@@ -138,3 +138,49 @@ void free_http_request(HttpRequest* request) {
     if (request->body) free(request->body);
     if (request->headers) free(request->headers);
 }
+// 특정 파일을 읽어 HTTP 응답을 생성하는 새로운 함수
+void build_response_from_file(HttpResponse* response, const char* file_path) {
+    char* file_content = NULL;
+    size_t content_length = 0;
+    int status_code = 200;
+    const char* content_type = "text/html";
+
+    // 파일 내용 읽기
+    file_content = get_file_content(file_path, &content_length);
+
+    if (file_content == NULL) {
+        status_code = 404;
+        file_content = get_file_content("web/404.html", &content_length);
+        if (file_content == NULL) {
+            status_code = 500;
+            file_content = strdup("<h1>500 Internal Server Error</h1>");
+            content_length = strlen(file_content);
+        }
+    }
+
+    // 파일 확장자에 따라 Content-Type 결정
+    const char* ext = strrchr(file_path, '.');
+    if (ext && strcmp(ext, ".css") == 0) {
+        content_type = "text/css";
+    }
+
+    // 응답 헤더 생성
+    build_response_header(response, content_type, content_length, status_code);
+
+    // 응답 본문과 헤더를 결합하여 최종 응답 생성
+    size_t total_length = strlen(response->header) + content_length;
+    response->content = (char*)malloc(total_length + 1);
+    if (response->content == NULL) {
+        log_error("Failed to allocate memory for response.");
+        free(response->header);
+        free(file_content);
+        return;
+    }
+    strcpy(response->content, response->header);
+    memcpy(response->content + strlen(response->header), file_content, content_length);
+    response->content[total_length] = '\0';
+
+    // 메모리 해제
+    free(file_content);
+    free(response->header);
+}

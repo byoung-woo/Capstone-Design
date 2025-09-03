@@ -42,3 +42,32 @@ void init_database() {
     // 데이터베이스 종료 (서버 실행 시에는 연결 유지)
     // sqlite3_close(db);
 }
+// 사용자 인증 함수
+int authenticate_user(const char* username, const char* password) {
+    char* sql;
+    char* err_msg = 0;
+    int rc;
+    int authenticated = 0;
+    sqlite3_stmt *stmt;
+
+    // SQL Injection 방지를 위해 파라미터 바인딩 사용
+    sql = "SELECT COUNT(*) FROM users WHERE username = ? AND password = ?;";
+
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
+    if (rc != SQLITE_OK) {
+        log_error("SQL prepare error.");
+        return 0;
+    }
+
+    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, password, -1, SQLITE_TRANSIENT);
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        if (sqlite3_column_int(stmt, 0) > 0) {
+            authenticated = 1;
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    return authenticated;
+}
