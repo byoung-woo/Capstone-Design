@@ -34,6 +34,14 @@ static int is_dir_traversal(const char* path) {
     return 0;
 }
 
+// 원격 코드 실행(RCE) 키워드를 탐지하는 함수
+static int is_rce_keyword(const char* request) {
+    if (strstr(request, "system(") || strstr(request, "exec(") || strstr(request, "popen(")) {
+        return 1;
+    }
+    return 0;
+}
+
 // 로거 모듈 초기화
 void init_logger() {
     log_file = fopen(LOG_FILE, "a");
@@ -96,6 +104,12 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
         return;
     }
 
+    // HTTP 버전 끝에 있는 '\r' 문자를 제거하여 파싱 오류 방지
+    char* http_version_end = strstr(request_line, "HTTP/1.1");
+    if (http_version_end != NULL && (http_version_end = strchr(http_version_end, '\r')) != NULL) {
+        *http_version_end = '\0';
+    }
+
     char* method = strtok(request_line, " ");
     char* path_and_query = strtok(NULL, " ");
     char* version = strtok(NULL, " ");
@@ -144,6 +158,11 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
     cJSON* rule = cJSON_CreateObject();
     cJSON_AddBoolToObject(rule, "dir_traversal", is_dir_traversal(path) ? cJSON_True : cJSON_False);
     cJSON_AddBoolToObject(rule, "sqli_keyword", is_sql_injection(request_buffer) ? cJSON_True : cJSON_False);
+    
+    // 추가된 규칙: RCE 키워드 및 잘못된 메서드 탐지
+    cJSON_AddBoolToObject(rule, "rce_keyword", is_rce_keyword(request_buffer) ? cJSON_True : cJSON_False);
+    cJSON_AddBoolToObject(rule, "bad_method", (strcmp(method, "GET") != 0 && strcmp(method, "POST") != 0) ? cJSON_True : cJSON_False);
+
     cJSON_AddItemToObject(log_json, "rule", rule);
 
     // 최종 JSON 문자열로 변환 및 파일에 기록
