@@ -75,7 +75,7 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
         log_error("Log file is not open.");
         return;
     }
-
+    
     // 시간 정보 포맷팅 (ISO 8601)
     time_t now = time(NULL);
     struct tm* t = localtime(&now);

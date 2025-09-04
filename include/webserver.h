@@ -24,6 +24,9 @@ typedef struct {
     char* version;
     char* body;
     char* headers;
+    int client_socket; // 클라이언트 소켓 식별자 추가
+    const char* raw_buffer; // 원본 요청 버퍼 추가
+    int bytes_read; // 버퍼에 읽힌 바이트 수 추가
 } HttpRequest;
 
 // HttpResponse: 서버의 HTTP 응답을 담는 구조체

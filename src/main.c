@@ -17,7 +17,7 @@
 #include "logger.h"
 #include "db_manager.h"
 
-// HTTP 요청을 파싱하는 함수 (새로 추가)
+// HTTP 요청을 파싱하는 함수
 void parse_http_request(const char* buffer, HttpRequest* request) {
     char* buffer_copy = strdup(buffer);
     char* request_line = strtok(buffer_copy, "\r\n");
@@ -51,7 +51,6 @@ void parse_http_request(const char* buffer, HttpRequest* request) {
 }
 
 // 스레드에서 클라이언트 요청을 처리하는 함수
-// 모든 클라이언트 연결은 이 함수를 통해 별도의 스레드에서 처리됩니다.
 void* handle_client(void* arg) {
     int client_socket = *((int*)arg);
     free(arg); // 힙 메모리 해제
@@ -63,7 +62,6 @@ void* handle_client(void* arg) {
 
     // SSL 연결 수락 및 핸드셰이크
     if (SSL_accept(ssl) <= 0) {
-        // 오류 발생 시 오류 로그 기록 및 연결 종료
         log_error("SSL handshake failed");
         SSL_free(ssl);
         close(client_socket);
@@ -72,18 +70,24 @@ void* handle_client(void* arg) {
 
     char buffer[BUFFER_SIZE];
     int bytes_read;
+    
+    // 버퍼를 0으로 초기화하여 이전 데이터 잔여물 방지
+    memset(buffer, 0, sizeof(buffer));
 
     // 클라이언트의 HTTP 요청 읽기 (HTTPS 보안 통신)
     bytes_read = SSL_read(ssl, buffer, sizeof(buffer) - 1);
     if (bytes_read > 0) {
         buffer[bytes_read] = '\0'; // 문자열 끝 표시
 
-        // 요청 로그 기록 (AI 학습을 위한 핵심 부분)
-        log_request(client_socket, buffer, bytes_read);
-
         // HTTP 요청 파싱
         HttpRequest request;
         memset(&request, 0, sizeof(request)); // 구조체 초기화
+        
+        // 요청 버퍼와 소켓 정보를 HttpRequest에 저장
+        request.client_socket = client_socket;
+        request.raw_buffer = buffer;
+        request.bytes_read = bytes_read;
+
         parse_http_request(buffer, &request);
         
         // 요청에 맞는 응답 생성 및 전송

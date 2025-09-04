@@ -10,6 +10,7 @@
 #include "login_handler.h" // 로그인 핸들러 추가
 #include "signup_handler.h" // 회원가입 핸들러 추가
 #include "response_builder.h"
+#include "logger.h"
 
 // 정적 파일 경로를 결정하는 함수 (이전 로직 유지)
 void get_static_file_path(const char* url_path, char* file_path, int file_path_size) {
@@ -29,6 +30,9 @@ void get_static_file_path(const char* url_path, char* file_path, int file_path_s
 
 // HTTP 요청을 라우팅하고 응답을 생성하는 메인 함수
 void handle_request_routing(HttpRequest* request, HttpResponse* response) {
+    // 요청 로그 기록 (보안 규칙 검사를 위해 먼저 실행)
+    log_request(request->client_socket, request->raw_buffer, request->bytes_read); 
+
     // POST 요청 처리
     if (strcmp(request->method, "POST") == 0) {
         if (strcmp(request->path, "/login") == 0) {
