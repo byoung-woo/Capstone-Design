@@ -9,6 +9,7 @@
 #include "response_builder.h"
 #include "webserver.h"
 #include "logger.h"
+#include "router.h" // get_static_file_path 함수 선언을 위해 추가
 
 // HTTP 응답 헤더를 생성하는 함수
 static void build_response_header(HttpResponse* response, const char* content_type, size_t content_length, int status_code) {
@@ -73,7 +74,7 @@ void build_response(HttpRequest* request, HttpResponse* response) {
     const char* content_type = "text/plain";
 
     // URL 경로에 따라 파일 경로 결정
-    get_file_path(request->path, file_path, sizeof(file_path));
+    get_static_file_path(request->path, file_path, sizeof(file_path));
     
     // 파일 내용 읽기
     file_content = get_file_content(file_path, &content_length);

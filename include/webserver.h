@@ -47,11 +47,23 @@ SSL_CTX* get_ssl_context();
 void cleanup_ssl();
 
 // router.c 함수
-void get_file_path(const char* url_path, char* file_path, int file_path_size);
+void handle_request_routing(HttpRequest* request, HttpResponse* response); // 라우팅 함수를 하나로 통일
 
 // response_builder.c 함수
 void build_response(HttpRequest* request, HttpResponse* response);
+void build_response_from_file(HttpResponse* response, const char* file_path);
 void free_http_request(HttpRequest* request);
 void free_http_response(HttpResponse* response);
+
+// db_manager.c 함수
+void init_database();
+int authenticate_user(const char* username, const char* password);
+int insert_user(const char* username, const char* password);
+
+// login_handler.c 함수
+void handle_login(HttpRequest* request, HttpResponse* response);
+
+// signup_handler.c 함수
+void handle_signup(HttpRequest* request, HttpResponse* response);
 
 #endif

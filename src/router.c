@@ -1,29 +1,54 @@
 // router.c
-// 요청된 URL 경로에 따라 적절한 웹 콘텐츠 파일을 매핑하는 모듈입니다.
+// 요청된 URL 경로와 HTTP 메서드에 따라 적절한 핸들러를 호출하는 모듈.
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "webserver.h"
 #include "router.h"
+#include "login_handler.h" // 로그인 핸들러 추가
+#include "signup_handler.h" // 회원가입 핸들러 추가
+#include "response_builder.h"
 
-// URL 경로에 따라 파일 경로를 결정하는 함수
-void get_file_path(const char* url_path, char* file_path, int file_path_size) {
-    // 기본 경로를 "web/" 디렉토리로 설정
+// 정적 파일 경로를 결정하는 함수 (이전 로직 유지)
+void get_static_file_path(const char* url_path, char* file_path, int file_path_size) {
     strcpy(file_path, "web");
 
-    // 경로가 루트("/")일 경우 기본 페이지(index.html)를 반환
     if (strcmp(url_path, "/") == 0) {
         strcat(file_path, "/index.html");
     } 
-    // 그 외의 경우, URL 경로를 그대로 파일명으로 사용
     else {
-        // 경로 유효성 검사 (상위 디렉토리 접근 방지)
         if (strstr(url_path, "..") != NULL) {
-            // 잘못된 접근 시도 시, 404 페이지로 라우팅
             strcpy(file_path, "web/404.html");
             return;
         }
         strcat(file_path, url_path);
     }
+}
+
+// HTTP 요청을 라우팅하고 응답을 생성하는 메인 함수
+void handle_request_routing(HttpRequest* request, HttpResponse* response) {
+    // POST 요청 처리
+    if (strcmp(request->method, "POST") == 0) {
+        if (strcmp(request->path, "/login") == 0) {
+            handle_login(request, response);
+            return;
+        } else if (strcmp(request->path, "/signup") == 0) {
+            // 회원가입 요청 처리
+            handle_signup(request, response);
+            return;
+        }
+    }
+
+    // GET 요청 처리 (정적 파일)
+    if (strcmp(request->method, "GET") == 0) {
+        char file_path[256];
+        get_static_file_path(request->path, file_path, sizeof(file_path));
+        build_response_from_file(response, file_path);
+        return;
+    }
+
+    // 지원하지 않는 메서드나 경로
+    build_response_from_file(response, "web/404.html");
 }

@@ -35,8 +35,16 @@ void parse_http_request(const char* buffer, HttpRequest* request) {
         }
     }
     
-    // 이 예제에서는 body와 headers는 파싱하지 않음
-    request->body = NULL;
+    // POST 요청의 경우, 본문(body)을 파싱
+    char* body_start = strstr(buffer, "\r\n\r\n");
+    if (body_start) {
+        body_start += 4; // 헤더와 본문을 구분하는 빈 줄 다음으로 이동
+        request->body = strdup(body_start);
+    } else {
+        request->body = NULL;
+    }
+
+    // headers는 이 예제에서는 파싱하지 않음
     request->headers = NULL;
 
     free(buffer_copy);
@@ -77,11 +85,13 @@ void* handle_client(void* arg) {
         HttpRequest request;
         memset(&request, 0, sizeof(request)); // 구조체 초기화
         parse_http_request(buffer, &request);
-
+        
         // 요청에 맞는 응답 생성 및 전송
         HttpResponse response;
         memset(&response, 0, sizeof(response)); // 구조체 초기화
-        build_response(&request, &response);
+        
+        // 라우팅 함수를 호출하여 GET/POST 요청을 분기 처리
+        handle_request_routing(&request, &response);
         
         // 응답 전송 (HTTPS 보안 통신)
         SSL_write(ssl, response.content, strlen(response.content));

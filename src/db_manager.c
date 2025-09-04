@@ -42,10 +42,10 @@ void init_database() {
     // 데이터베이스 종료 (서버 실행 시에는 연결 유지)
     // sqlite3_close(db);
 }
+
 // 사용자 인증 함수
 int authenticate_user(const char* username, const char* password) {
     char* sql;
-    char* err_msg = 0;
     int rc;
     int authenticated = 0;
     sqlite3_stmt *stmt;
@@ -70,4 +70,30 @@ int authenticate_user(const char* username, const char* password) {
 
     sqlite3_finalize(stmt);
     return authenticated;
+}
+
+// 새로운 사용자를 데이터베이스에 삽입하는 함수
+int insert_user(const char* username, const char* password) {
+    const char* sql = "INSERT INTO users (username, password) VALUES (?, ?);";
+    sqlite3_stmt* stmt;
+    int rc;
+
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
+    if (rc != SQLITE_OK) {
+        log_error("SQL prepare error for user insertion.");
+        return 0;
+    }
+
+    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, password, -1, SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+        log_error("SQL step error during user insertion.");
+        sqlite3_finalize(stmt);
+        return 0; // 삽입 실패
+    }
+
+    sqlite3_finalize(stmt);
+    return 1; // 삽입 성공
 }
