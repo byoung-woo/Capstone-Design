@@ -1,7 +1,6 @@
 // logger.c
 // 웹서버의 로그 기록 모듈.
-// JSON 포맷으로 클라이언트 요청 정보를 파일에 기록하고,
-// 규칙 기반 분석 결과도 함께 포함합니다.
+// JSON 포맷으로 클라이언트 요청 정보를 파일에 기록합니다.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,31 +15,6 @@
 
 // 로그 파일 포인터
 static FILE* log_file;
-
-// --- 규칙 기반 분석 함수 ---
-// SQL 인젝션 키워드를 탐지하는 함수
-static int is_sql_injection(const char* request) {
-    if (strstr(request, "' OR '1'='1'") || strstr(request, " UNION SELECT ") || strstr(request, "information_schema")) {
-        return 1;
-    }
-    return 0;
-}
-
-// 디렉터리 탐색 공격을 탐지하는 함수
-static int is_dir_traversal(const char* path) {
-    if (strstr(path, "../") || strstr(path, "..\\")) {
-        return 1;
-    }
-    return 0;
-}
-
-// 원격 코드 실행(RCE) 키워드를 탐지하는 함수
-static int is_rce_keyword(const char* request) {
-    if (strstr(request, "system(") || strstr(request, "exec(") || strstr(request, "popen(")) {
-        return 1;
-    }
-    return 0;
-}
 
 // 로거 모듈 초기화
 void init_logger() {
@@ -153,17 +127,6 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
     cJSON_AddNumberToObject(features, "path_depth", get_path_depth(path));
     cJSON_AddNumberToObject(features, "query_len", strlen(query));
     cJSON_AddItemToObject(log_json, "features", features);
-
-    // 규칙 기반 분석 결과를 rule 객체에 담기
-    cJSON* rule = cJSON_CreateObject();
-    cJSON_AddBoolToObject(rule, "dir_traversal", is_dir_traversal(path) ? cJSON_True : cJSON_False);
-    cJSON_AddBoolToObject(rule, "sqli_keyword", is_sql_injection(request_buffer) ? cJSON_True : cJSON_False);
-    
-    // 추가된 규칙: RCE 키워드 및 잘못된 메서드 탐지
-    cJSON_AddBoolToObject(rule, "rce_keyword", is_rce_keyword(request_buffer) ? cJSON_True : cJSON_False);
-    cJSON_AddBoolToObject(rule, "bad_method", (strcmp(method, "GET") != 0 && strcmp(method, "POST") != 0) ? cJSON_True : cJSON_False);
-
-    cJSON_AddItemToObject(log_json, "rule", rule);
 
     // 최종 JSON 문자열로 변환 및 파일에 기록
     char* json_string = cJSON_Print(log_json);
