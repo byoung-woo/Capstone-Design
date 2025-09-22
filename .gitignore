@@ -10,6 +10,8 @@ webserver
 # 데이터베이스 및 로그 파일 (로컬 환경에서만 사용)
 webserver.db
 webserver.log
+webserver_access.log
+webserver_attack.log
 
 snort-2.9.20
 snort-2.9.20.tar.gz
