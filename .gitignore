@@ -14,3 +14,5 @@ webserver.log
 snort-2.9.20
 snort-2.9.20.tar.gz
 
+# 민감한 정보를 담고 있는 설정 파일
+config.sh
