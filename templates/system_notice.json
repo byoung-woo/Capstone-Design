@@ -1,0 +1,29 @@
+{
+  "attachments": [
+    {
+      "color": "#DDDDDD", // 회색
+      "blocks": [
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "ℹ️ *시스템 알림: C-WebServer 상태 변경*"
+          }
+        },
+        {
+          "type": "section",
+          "fields": [
+            {"type": "mrkdwn", "text": "*Server Name:*\nrpi-capstone"},
+            {"type": "mrkdwn", "text": "*Event Message:*\n`\($message)`"}
+          ]
+        },
+        {
+          "type": "context",
+          "elements": [
+            {"type": "mrkdwn", "text": "ts=\($ts) KST"}
+          ]
+        }
+      ]
+    }
+  ]
+}

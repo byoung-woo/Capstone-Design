@@ -1,0 +1,36 @@
+{
+  "attachments": [
+    {
+      "color": "#FFA500", // 주황색
+      "blocks": [
+        {
+          "type": "header",
+          "text": {
+            "type": "plain_text",
+            "text": "🤖 2차 AI 시스템 이상 행위 탐지"
+          }
+        },
+        {
+          "type": "section",
+          "fields": [
+            {"type": "mrkdwn", "text": "*Source IP:*\n`\($ip)`"},
+            {"type": "mrkdwn", "text": "*Request Path:*\n`\($path)`"},
+            {"type": "mrkdwn", "text": "*Risk Score:*\n`\($risk_score)`"},
+            {"type": "mrkdwn", "text": "*Anomaly Reason:*\n`\($reason)`"}
+          ]
+        },
+        { "type": "divider" },
+        {
+          "type": "section",
+          "text": { "type": "mrkdwn", "text": "*Recommendation:*\n`해당 요청의 전체 로그를 분석하여 정상적인 사용자인지 확인하세요.`" }
+        },
+        {
+          "type": "context",
+          "elements": [
+            {"type": "mrkdwn", "text": "ts=\($ts) KST • server=ai-analyzer"}
+          ]
+        }
+      ]
+    }
+  ]
+}
