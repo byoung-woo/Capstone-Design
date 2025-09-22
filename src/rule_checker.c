@@ -10,7 +10,7 @@
 const char* attack_patterns[] = {
     "' OR '1'='1'", "UNION SELECT", "--", "SLEEP(",
     "<script>", "onerror=", "javascript:",
-    "../", "/etc/passwd", "&",
+    "../", "/etc/passwd",
     NULL
 };
 
