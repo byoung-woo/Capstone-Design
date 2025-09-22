@@ -8,12 +8,14 @@
 // --- 상수 및 매크로 ---
 #define SERVER_PORT 8443
 #define BUFFER_SIZE 4096
-#define LOG_FILE "webserver.log"
+// 로그 파일을 두 종류로 분리
+#define ACCESS_LOG_FILE "webserver_access.log"
+#define ATTACK_LOG_FILE "webserver_attack.log"
 #define DB_FILE "webserver.db" 
 #define CERT_FILE "certs/server.crt"
 #define KEY_FILE "certs/server.key"
 
-// --- HTTP 요청 및 응답 구조체 ---
+// ... (이하 구조체 및 함수 선언은 이전과 동일) ...
 typedef struct {
     char* method;
     char* path;
@@ -30,38 +32,29 @@ typedef struct {
     char* content;
 } HttpResponse;
 
-// --- 함수 선언 (프로토타입) ---
-// logger.c
+// --- 함수 선언 ---
 void init_logger();
 void log_error(const char* message);
 void log_request(int client_socket, const char* request_buffer, int bytes_read);
 void cleanup_logger();
 
-// ssl_handler.c
 void init_ssl();
 SSL_CTX* get_ssl_context();
 void cleanup_ssl();
 
-// router.c
 void handle_request_routing(HttpRequest* request, HttpResponse* response);
 
-// response_builder.c
 void build_response_from_file(HttpResponse* response, const char* file_path);
 void free_http_request(HttpRequest* request);
 void free_http_response(HttpResponse* response);
 
-// db_manager.c
 void init_database();
 int authenticate_user(const char* username, const char* password);
 int insert_user(const char* username, const char* password);
 
-// login_handler.c
 void handle_login(HttpRequest* request, HttpResponse* response);
-
-// signup_handler.c
 void handle_signup(HttpRequest* request, HttpResponse* response);
 
-// rule_checker.c 함수 추가
 int is_attack_detected(HttpRequest* request);
 
 #endif

@@ -10,35 +10,31 @@
 #include "logger.h"
 #include "webserver.h"
 
-// 로그 파일 포인터
-static FILE* log_file;
+// 로그 파일을 두 종류로 분리
+static FILE* access_log_file;
+static FILE* attack_log_file;
 
-// 로거 모듈 초기화
 void init_logger() {
-    log_file = fopen(LOG_FILE, "a");
-    if (log_file == NULL) {
-        perror("Failed to open log file");
+    access_log_file = fopen(ACCESS_LOG_FILE, "a");
+    attack_log_file = fopen(ATTACK_LOG_FILE, "a");
+
+    if (access_log_file == NULL || attack_log_file == NULL) {
+        perror("Failed to open log files");
         exit(1);
     }
 }
 
-// 오류 및 탐지 로그 기록 (수정된 함수)
+// 오류 및 공격 탐지 로그는 attack_log_file에 기록
 void log_error(const char* message) {
-    if (!log_file) return;
-
-    // 시간 정보 포맷팅
+    if (!attack_log_file) return;
     time_t now = time(NULL);
     char time_str[64];
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
-
-    // 파일에 로그 기록
-    fprintf(log_file, "[%s] %s\n", time_str, message);
-    
-    // ★★★ 핵심 수정사항: 버퍼를 즉시 파일에 쓰도록 강제 ★★★
-    fflush(log_file);
+    fprintf(attack_log_file, "[%s] %s\n", time_str, message);
+    fflush(attack_log_file); // 즉시 파일에 쓰도록 강제
 }
 
-// URL 경로에서 쿼리 문자열을 분리하는 함수
+// URL에서 쿼리 문자열 분리
 char* get_query(char* url) {
     char* query = strchr(url, '?');
     if (query) {
@@ -48,24 +44,23 @@ char* get_query(char* url) {
     return "";
 }
 
-// URL 경로 깊이를 계산하는 함수
+// 경로 깊이 계산
 int get_path_depth(const char* path) {
     int depth = 0;
     for (int i = 0; path[i] != '\0'; i++) {
-        if (path[i] == '/') {
-            depth++;
-        }
+        if (path[i] == '/') depth++;
     }
     return depth > 0 ? depth : 1;
 }
 
-// 클라이언트 요청을 JSON 형식으로 기록하는 함수
+// 정상적인 요청(JSON) 로그는 access_log_file에 기록
 void log_request(int client_socket, const char* request_buffer, int bytes_read) {
-    if (!log_file) {
-        log_error("Log file is not open.");
+    if (!access_log_file) {
+        log_error("Access log file is not open.");
         return;
     }
     
+    // (이하 JSON 로그를 생성하는 코드는 이전과 동일)
     time_t now = time(NULL);
     struct tm* t = localtime(&now);
     char iso_time_str[64];
@@ -129,10 +124,10 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
     cJSON_AddNumberToObject(features, "query_len", strlen(query));
     cJSON_AddItemToObject(log_json, "features", features);
 
-    char* json_string = cJSON_Print(log_json);
+    char* json_string = cJSON_PrintUnformatted(log_json); // 한 줄로 출력
     if (json_string) {
-        fprintf(log_file, "%s\n", json_string);
-        fflush(log_file);
+        fprintf(access_log_file, "%s\n", json_string);
+        fflush(access_log_file);
         free(json_string);
     }
     
@@ -141,9 +136,7 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
     free(path_copy);
 }
 
-// 로거 모듈 정리
 void cleanup_logger() {
-    if (log_file) {
-        fclose(log_file);
-    }
+    if (access_log_file) fclose(access_log_file);
+    if (attack_log_file) fclose(attack_log_file);
 }

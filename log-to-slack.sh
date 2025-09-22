@@ -10,7 +10,8 @@ if [ -z "$WEBHOOK_URL" ]; then
 fi
 
 # 감시할 로그 파일
-LOG_FILE="/home/user/web-server1/webserver.log"
+# LOG_FILE="/home/user/web-server1/webserver.log"
+LOG_FILE="/home/user/web-server1/webserver_attack.log"
 
 # 사용할 알림 템플릿 파일 경로
 TEMPLATE_FILE="./templates/waf_alert.json"
