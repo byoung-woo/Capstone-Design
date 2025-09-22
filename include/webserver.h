@@ -1,12 +1,9 @@
 // webserver.h
-// 프로젝트 전반에서 사용되는 공통 정의들을 포함하는 헤더 파일입니다.
-// 상수, 매크로, 구조체 선언 등이 포함됩니다.
-
 #ifndef WEBSERVER_H
 #define WEBSERVER_H
 
-#include <stdlib.h> // size_t 사용을 위해 포함
-#include <openssl/ssl.h> // SSL_CTX 사용을 위해 추가
+#include <stdlib.h>
+#include <openssl/ssl.h>
 
 // --- 상수 및 매크로 ---
 #define SERVER_PORT 8443
@@ -17,56 +14,54 @@
 #define KEY_FILE "certs/server.key"
 
 // --- HTTP 요청 및 응답 구조체 ---
-// HttpRequest: 클라이언트의 HTTP 요청을 담는 구조체
 typedef struct {
     char* method;
     char* path;
     char* version;
     char* body;
     char* headers;
-    int client_socket; // 클라이언트 소켓 식별자 추가
-    const char* raw_buffer; // 원본 요청 버퍼 추가
-    int bytes_read; // 버퍼에 읽힌 바이트 수 추가
+    int client_socket;
+    const char* raw_buffer;
+    int bytes_read;
 } HttpRequest;
 
-// HttpResponse: 서버의 HTTP 응답을 담는 구조체
 typedef struct {
     char* header;
     char* content;
 } HttpResponse;
 
-
 // --- 함수 선언 (프로토타입) ---
-// 다른 모듈의 함수를 여기서 선언하여 외부에서 접근 가능하게 합니다.
-// logger.c 함수
+// logger.c
 void init_logger();
 void log_error(const char* message);
 void log_request(int client_socket, const char* request_buffer, int bytes_read);
 void cleanup_logger();
 
-// ssl_handler.c 함수
+// ssl_handler.c
 void init_ssl();
 SSL_CTX* get_ssl_context();
 void cleanup_ssl();
 
-// router.c 함수
-void handle_request_routing(HttpRequest* request, HttpResponse* response); // 라우팅 함수를 하나로 통일
+// router.c
+void handle_request_routing(HttpRequest* request, HttpResponse* response);
 
-// response_builder.c 함수
-void build_response(HttpRequest* request, HttpResponse* response);
+// response_builder.c
 void build_response_from_file(HttpResponse* response, const char* file_path);
 void free_http_request(HttpRequest* request);
 void free_http_response(HttpResponse* response);
 
-// db_manager.c 함수
+// db_manager.c
 void init_database();
 int authenticate_user(const char* username, const char* password);
 int insert_user(const char* username, const char* password);
 
-// login_handler.c 함수
+// login_handler.c
 void handle_login(HttpRequest* request, HttpResponse* response);
 
-// signup_handler.c 함수
+// signup_handler.c
 void handle_signup(HttpRequest* request, HttpResponse* response);
+
+// rule_checker.c 함수 추가
+int is_attack_detected(HttpRequest* request);
 
 #endif

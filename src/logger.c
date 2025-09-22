@@ -1,7 +1,4 @@
-// logger.c
-// 웹서버의 로그 기록 모듈.
-// JSON 포맷으로 클라이언트 요청 정보를 파일에 기록합니다.
-
+// src/logger.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,9 +22,20 @@ void init_logger() {
     }
 }
 
-// 오류 로그 기록
+// 오류 및 탐지 로그 기록 (수정된 함수)
 void log_error(const char* message) {
-    // 기존 코드와 동일
+    if (!log_file) return;
+
+    // 시간 정보 포맷팅
+    time_t now = time(NULL);
+    char time_str[64];
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+    // 파일에 로그 기록
+    fprintf(log_file, "[%s] %s\n", time_str, message);
+    
+    // ★★★ 핵심 수정사항: 버퍼를 즉시 파일에 쓰도록 강제 ★★★
+    fflush(log_file);
 }
 
 // URL 경로에서 쿼리 문자열을 분리하는 함수
@@ -58,19 +66,16 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
         return;
     }
     
-    // 시간 정보 포맷팅 (ISO 8601)
     time_t now = time(NULL);
     struct tm* t = localtime(&now);
     char iso_time_str[64];
     strftime(iso_time_str, sizeof(iso_time_str), "%Y-%m-%dT%H:%M:%S%z", t);
 
-    // 클라이언트 IP 주소 가져오기
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
     getpeername(client_socket, (struct sockaddr*)&addr, &addr_len);
     char* client_ip = inet_ntoa(addr.sin_addr);
 
-    // HTTP 요청 라인 파싱
     char* request_copy = strdup(request_buffer);
     char* request_line = strtok(request_copy, "\n");
     if (!request_line) {
@@ -78,7 +83,6 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
         return;
     }
 
-    // HTTP 버전 끝에 있는 '\r' 문자를 제거하여 파싱 오류 방지
     char* http_version_end = strstr(request_line, "HTTP/1.1");
     if (http_version_end != NULL && (http_version_end = strchr(http_version_end, '\r')) != NULL) {
         *http_version_end = '\0';
@@ -97,7 +101,6 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
     char* query = get_query(path_copy);
     char* path = path_copy;
 
-    // JSON 객체 생성
     cJSON* log_json = cJSON_CreateObject();
     
     cJSON_AddStringToObject(log_json, "timestamp", iso_time_str);
@@ -107,7 +110,6 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
     cJSON_AddStringToObject(log_json, "http_version", version);
     cJSON_AddNumberToObject(log_json, "bytes", bytes_read);
 
-    // User-Agent 헤더 추출
     const char* user_agent_start = strstr(request_buffer, "User-Agent: ");
     if (user_agent_start) {
         user_agent_start += strlen("User-Agent: ");
@@ -121,14 +123,12 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
         }
     }
 
-    // features 객체 생성 및 추가
     cJSON* features = cJSON_CreateObject();
     cJSON_AddNumberToObject(features, "path_len", strlen(path));
     cJSON_AddNumberToObject(features, "path_depth", get_path_depth(path));
     cJSON_AddNumberToObject(features, "query_len", strlen(query));
     cJSON_AddItemToObject(log_json, "features", features);
 
-    // 최종 JSON 문자열로 변환 및 파일에 기록
     char* json_string = cJSON_Print(log_json);
     if (json_string) {
         fprintf(log_file, "%s\n", json_string);
