@@ -1,4 +1,4 @@
-// src/logger.c (최종 수정본)
+// src/logger.c (TLS/SSL 암호화 적용)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,11 +7,14 @@
 #include <sys/socket.h>
 #include <cjson/cJSON.h>
 #include <unistd.h>
+// OpenSSL 헤더 추가
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 #include "logger.h"
 #include "webserver.h"
 
-#define ANALYZER_IP "172.20.10.2" // 윈도우 Wi-Fi IP 주소
+#define ANALYZER_IP "172.20.10.2" // AI 분석 서버 IP 주소
 #define ANALYZER_PORT 5140
 
 static FILE* access_log_file;
@@ -35,39 +38,68 @@ void log_error(const char* message) {
     fflush(attack_log_file);
 }
 
+// 이 함수가 핵심적으로 변경됩니다.
 void send_log_to_analyzer(const char* log_with_newline) {
-    int sock = 0;
+    int sock;
     struct sockaddr_in serv_addr;
+    SSL_CTX *ctx = NULL;
+    SSL *ssl = NULL;
 
+    // 1. SSL 클라이언트 컨텍스트 생성
+    //    SSLv23_client_method()는 최신 프로토콜을 자동으로 협상합니다.
+    ctx = SSL_CTX_new(SSLv23_client_method());
+    if (!ctx) {
+        log_error("Failed to create SSL context for analyzer client.");
+        return;
+    }
+
+    // 2. TCP 소켓 생성 및 연결 (기존과 동일)
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         log_error("Socket creation error for analyzer");
+        SSL_CTX_free(ctx);
         return;
     }
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(ANALYZER_PORT);
-
     if (inet_pton(AF_INET, ANALYZER_IP, &serv_addr.sin_addr) <= 0) {
         log_error("Invalid address/ Address not supported");
         close(sock);
+        SSL_CTX_free(ctx);
         return;
     }
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         log_error("Connection Failed to analyzer server");
         close(sock);
+        SSL_CTX_free(ctx);
         return;
     }
 
-    // ★★★ 이제 \n이 포함된 데이터를 보냅니다 ★★★
-    send(sock, log_with_newline, strlen(log_with_newline), 0);
-    
-    // sleep()은 더 이상 필요 없을 수 있지만, 안정성을 위해 그대로 둡니다.
-    sleep(1);
-    
+    // 3. SSL 객체 생성 및 소켓과 연결
+    ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, sock);
+
+    // 4. SSL 핸드셰이크 수행 (암호화 채널 수립)
+    if (SSL_connect(ssl) <= 0) {
+        log_error("SSL handshake failed with analyzer server.");
+        ERR_print_errors_fp(stderr);
+    } else {
+        // 5. 암호화된 채널로 데이터 전송 (send -> SSL_write)
+        SSL_write(ssl, log_with_newline, strlen(log_with_newline));
+    }
+
+    // 6. 자원 해제
+    if(ssl) {
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+    }
     close(sock);
+    SSL_CTX_free(ctx);
 }
 
+
+// --- 이하 로직은 기존과 동일합니다 ---
 char* get_query(char* url) {
     char* query = strchr(url, '?');
     if (query) { *query = '\0'; return query + 1; }
@@ -83,8 +115,6 @@ int get_path_depth(const char* path) {
 }
 
 void log_request(int client_socket, const char* request_buffer, int bytes_read) {
-    // ... (이 함수 상단의 JSON 객체 생성 부분은 이전과 동일) ...
-    
     time_t now = time(NULL);
     struct tm* t = localtime(&now);
     char iso_time_str[64];
@@ -108,10 +138,7 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
 
     if (!method || !path_and_query || !version) { free(request_copy); return; }
 
-    char* path_copy = strdup(path_and_query);
-    char* query = get_query(path_copy);
-    char* path = path_copy;
-
+    
     cJSON* log_json = cJSON_CreateObject();
     cJSON_AddStringToObject(log_json, "timestamp", iso_time_str);
     cJSON_AddStringToObject(log_json, "client_ip", client_ip);
@@ -133,31 +160,29 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
         }
     }
 
-    cJSON* features = cJSON_CreateObject();
-    cJSON_AddNumberToObject(features, "path_len", strlen(path));
-    cJSON_AddNumberToObject(features, "path_depth", get_path_depth(path));
-    cJSON_AddNumberToObject(features, "query_len", strlen(query));
-    cJSON_AddItemToObject(log_json, "features", features);
+    // POST 요청 본문을 찾아서 JSON에 추가
+    if (strcmp(method, "POST") == 0) {
+        const char* body_start = strstr(request_buffer, "\r\n\r\n");
+        if (body_start) {
+            body_start += 4; // 헤더와 본문을 구분하는 빈 줄 다음으로 이동
+            cJSON_AddStringToObject(log_json, "request_body", body_start);
+        } else {
+            cJSON_AddStringToObject(log_json, "request_body", "");
+        }
+    }
 
     char* json_string = cJSON_PrintUnformatted(log_json);
     if (json_string) {
-        // 파일에 기록 (기존과 동일)
         fprintf(access_log_file, "%s\n", json_string);
         fflush(access_log_file);
         
-        // ★★★ 해결책: \n 문자를 포함한 새로운 문자열을 만들어 전송 ★★★
-        // 1. json_string 길이에 \n과 널 문자(\0) 공간(2)을 더한 만큼 메모리 할당
         char* log_to_send = malloc(strlen(json_string) + 2);
         if (log_to_send) {
-            // 2. 새로운 공간에 json_string 복사
             strcpy(log_to_send, json_string);
-            // 3. 문자열 끝에 \n 추가
             strcat(log_to_send, "\n");
             
-            // 4. \n이 추가된 최종본을 AI 서버로 전송
             send_log_to_analyzer(log_to_send);
             
-            // 5. 할당한 메모리 해제
             free(log_to_send);
         }
         
@@ -166,7 +191,7 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
     
     cJSON_Delete(log_json);
     free(request_copy);
-    free(path_copy);
+
 }
 
 void cleanup_logger() {
