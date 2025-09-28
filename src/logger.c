@@ -138,7 +138,7 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
 
     if (!method || !path_and_query || !version) { free(request_copy); return; }
 
-    
+
     cJSON* log_json = cJSON_CreateObject();
     cJSON_AddStringToObject(log_json, "timestamp", iso_time_str);
     cJSON_AddStringToObject(log_json, "client_ip", client_ip);

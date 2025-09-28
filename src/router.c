@@ -26,12 +26,12 @@ void get_static_file_path(const char* url_path, char* file_path, int file_path_s
 }
 
 void handle_request_routing(HttpRequest* request, HttpResponse* response) {
-    // 1. 룰 기반 1차 보안 검사 수행
-    if (is_attack_detected(request)) {
-        // 공격이 탐지되면 403 Forbidden 응답을 보내고 즉시 처리 종료
-        build_response_from_file(response, "web/403.html");
-        return;
-    }
+    // // 1. 룰 기반 1차 보안 검사 수행
+    // if (is_attack_detected(request)) {
+    //     // 공격이 탐지되면 403 Forbidden 응답을 보내고 즉시 처리 종료
+    //     build_response_from_file(response, "web/403.html");
+    //     return;
+    // }
 
     // 2. (1차 통과 시) 요청 로그 기록 및 AI 서버로 전송
     // log_request 함수는 이제 파일 기록과 네트워크 전송을 모두 담당합니다.

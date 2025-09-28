@@ -14,3 +14,4 @@ void cleanup_logger();
 void send_log_to_analyzer(const char* json_log);
 
 #endif
+
