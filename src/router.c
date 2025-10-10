@@ -12,6 +12,8 @@
 #include "rule_checker.h"
 
 void get_static_file_path(const char* url_path, char* file_path, int file_path_size) {
+    // url_path는 이미 src/main.c에서 URL 디코딩되었습니다.
+    
     strcpy(file_path, "web");
 
     if (strcmp(url_path, "/") == 0) {
@@ -24,6 +26,7 @@ void get_static_file_path(const char* url_path, char* file_path, int file_path_s
         strcat(file_path, url_path);
     }
 }
+
 
 void handle_request_routing(HttpRequest* request, HttpResponse* response) {
     // 1. 룰 기반 1차 보안 검사 수행

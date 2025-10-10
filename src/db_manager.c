@@ -1,13 +1,14 @@
 #include <stdio.h>
 #include <sqlite3.h>
 #include "db_manager.h"
-#include "webserver.h" // log_error 함수 사용을 위해 포함
-#include <openssl/rand.h> // [추가] 솔트 생성을 위해
-#include <openssl/evp.h>  // [추가] PBKDF2 해싱을 위해
-#include <string.h>       // [추가] strcmp 등 사용을 위해
+#include "webserver.h" 
+#include <openssl/rand.h> 
+#include <openssl/evp.h>  
+#include <string.h>      
 
 #define SALT_LEN 16
 #define HASH_LEN 64
+#define PBKDF2_ITERATIONS 100000 // [수정] 4096 -> 100000으로 증가. 해싱 강도 강화.
 
 // 데이터베이스 핸들러
 static sqlite3 *db;
@@ -51,7 +52,6 @@ void init_database() {
 }
 
 // 사용자 인증 함수
-// authenticate_user 함수 전체를 아래 코드로 교체
 int authenticate_user(const char* username, const char* password) {
     sqlite3_stmt *stmt;
     char sql[] = "SELECT salt, hashed_password FROM users WHERE username = ?;";
@@ -71,7 +71,7 @@ int authenticate_user(const char* username, const char* password) {
         unsigned char new_hash[HASH_LEN];
         // PBKDF2_HMAC_SHA256을 사용하여 입력된 비밀번호를 해싱
         PKCS5_PBKDF2_HMAC(password, strlen(password),
-                          salt_hex, strlen((char*)salt_hex), 4096, EVP_sha256(),
+                          salt_hex, strlen((char*)salt_hex), PBKDF2_ITERATIONS, EVP_sha256(), // [수정] PBKDF2_ITERATIONS 사용
                           HASH_LEN, new_hash);
         
         // 생성된 해시를 16진수 문자열로 변환하여 비교
@@ -90,7 +90,6 @@ int authenticate_user(const char* username, const char* password) {
 }
 
 
-// insert_user 함수 전체를 아래 코드로 교체
 int insert_user(const char* username, const char* password) {
     const char* sql = "INSERT INTO users (username, salt, hashed_password) VALUES (?, ?, ?);";
     sqlite3_stmt* stmt;
@@ -109,7 +108,7 @@ int insert_user(const char* username, const char* password) {
     // 2. 비밀번호 해싱
     unsigned char hash[HASH_LEN];
     if (!PKCS5_PBKDF2_HMAC(password, strlen(password), 
-                           (unsigned char*)salt_hex, strlen(salt_hex), 4096, EVP_sha256(), 
+                           (unsigned char*)salt_hex, strlen(salt_hex), PBKDF2_ITERATIONS, EVP_sha256(), // [수정] PBKDF2_ITERATIONS 사용
                            HASH_LEN, hash)) {
         log_error("Failed to hash password.");
         return 0;

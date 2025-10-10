@@ -15,7 +15,6 @@
 #define CERT_FILE "certs/server.crt"
 #define KEY_FILE "certs/server.key"
 
-// ... (이하 구조체 및 함수 선언은 이전과 동일) ...
 typedef struct {
     char* method;
     char* path;
@@ -56,5 +55,8 @@ void handle_login(HttpRequest* request, HttpResponse* response);
 void handle_signup(HttpRequest* request, HttpResponse* response);
 
 int is_attack_detected(HttpRequest* request);
+
+void url_decode(char *str); 
+char* get_form_value(const char* body, const char* key, char* output, size_t output_size);
 
 #endif

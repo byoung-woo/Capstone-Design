@@ -7,34 +7,20 @@
 #include <string.h>
 
 void handle_login(HttpRequest* request, HttpResponse* response) {
-    char username[100] = {0,};
-    char password[100] = {0,};
+    char username[100]; 
+    char password[100];
     
-    // POST 요청의 본문(body)에서 사용자명과 비밀번호 파싱
+    // POST 요청의 본문(body)
     char* body = request->body;
     
-    // key=value 형태로 값을 찾아 파싱
-    char* username_start = strstr(body, "username=");
-    char* password_start = strstr(body, "password=");
-
-    if (username_start != NULL && password_start != NULL) {
-        // username 파싱
-        username_start += 9; // "username=" 길이
-        char* username_end = strchr(username_start, '&');
-        if (username_end != NULL) {
-            int len = username_end - username_start;
-            if (len < sizeof(username)) {
-                strncpy(username, username_start, len);
-                username[len] = '\0';
-            }
-        }
-        
-        // password 파싱
-        password_start += 9; // "password=" 길이
-        // 1. password 버퍼 크기만큼만 안전하게 복사합니다.
-        strncpy(password, password_start, sizeof(password) - 1);
-        // 2. 버퍼의 마지막을 항상 NULL 문자로 설정하여 오버플로우를 방지합니다.
-        password[sizeof(password) - 1] = '\0';
+    // [수정] 안전한 get_form_value 함수를 사용하여 사용자명과 비밀번호 파싱 및 URL 디코딩
+    // get_form_value는 request->body에서 값을 추출하고 URL 디코딩까지 완료합니다.
+    if (get_form_value(body, "username", username, sizeof(username)) == NULL ||
+        get_form_value(body, "password", password, sizeof(password)) == NULL) 
+    {
+        // 파싱 실패 시 처리
+        build_response_from_file(response, "web/login.html");
+        return;
     }
 
     // 데이터베이스를 통해 사용자 인증
