@@ -12,18 +12,29 @@
 #include "rule_checker.h"
 
 void get_static_file_path(const char* url_path, char* file_path, int file_path_size) {
-    // url_path는 이미 src/main.c에서 URL 디코딩되었습니다.
-    
     strcpy(file_path, "web");
 
-    if (strcmp(url_path, "/") == 0) {
+    // [수정] 쿼리 파라미터 제거를 위한 '?' 위치 찾기
+    char temp_path[BUFFER_SIZE];
+    strncpy(temp_path, url_path, BUFFER_SIZE - 1);
+    temp_path[BUFFER_SIZE - 1] = '\0';
+
+    char* query_start = strchr(temp_path, '?');
+    if (query_start != NULL) {
+        *query_start = '\0'; // '?'를 NULL 문자로 대체하여 쿼리 스트링을 잘라냄
+    }
+    
+    // Path Traversal 방어 (이 로직은 쿼리 파라미터 제거 후 실행되어야 안전합니다)
+    if (strstr(temp_path, "..") != NULL) {
+        strcpy(file_path, "web/403.html");
+        return;
+    }
+    
+    // 실제 파일 경로 연결
+    if (strcmp(temp_path, "/") == 0) {
         strcat(file_path, "/index.html");
     } else {
-        if (strstr(url_path, "..") != NULL) {
-            strcpy(file_path, "web/403.html");
-            return;
-        }
-        strcat(file_path, url_path);
+        strcat(file_path, temp_path);
     }
 }
 

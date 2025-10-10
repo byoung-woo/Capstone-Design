@@ -12,7 +12,6 @@
 
 // 새로운 사용자를 데이터베이스에 추가하는 함수
 static int add_user_to_db(const char* username, const char* password) {
-    // 이 부분은 db_manager.c에 추가될 구현 함수를 호출합니다.
     return insert_user(username, password);
 }
 
@@ -23,21 +22,20 @@ void handle_signup(HttpRequest* request, HttpResponse* response) {
     
     char* body = request->body;
 
-    // [수정] 안전한 get_form_value 함수를 사용하여 사용자명과 비밀번호 파싱 및 URL 디코딩
     if (get_form_value(body, "username", username, sizeof(username)) == NULL ||
         get_form_value(body, "password", password, sizeof(password)) == NULL) 
     {
-        // 파싱 실패 시 처리
-        build_response_from_file(response, "web/signup.html");
+        // 파싱 실패 시: 회원가입 실패 알림을 위해 리다이렉션
+        build_redirect_response(response, "/signup.html?error=fail");
         return;
     }
 
     // 새로운 사용자를 데이터베이스에 추가
     if (add_user_to_db(username, password)) {
-        // 회원가입 성공 시 로그인 페이지로 리디렉션 또는 성공 메시지 응답
-        build_response_from_file(response, "web/login.html");
+        // [수정] 회원가입 성공 시: 로그인 페이지로 리다이렉션하며 성공 알림 파라미터 전달
+        build_redirect_response(response, "/login.html?status=success");
     } else {
-        // 회원가입 실패 시 다시 회원가입 페이지 응답
-        build_response_from_file(response, "web/signup.html");
+        // [수정] 회원가입 실패 시 (예: 사용자 이름 중복): 실패 알림 파라미터를 추가하여 리다이렉션
+        build_redirect_response(response, "/signup.html?error=duplicate");
     }
 }

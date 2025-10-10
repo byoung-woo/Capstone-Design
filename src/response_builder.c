@@ -56,12 +56,26 @@ static char* get_file_content(const char* file_path, size_t* content_length) {
     return content;
 }
 
-// 이 함수는 이제 사용되지 않으므로 주석 처리하거나 삭제 가능
-/*
-void build_response(HttpRequest* request, HttpResponse* response) {
-    // ...
+// [추가] HTTP 302 리다이렉션 응답을 만드는 함수
+void build_redirect_response(HttpResponse* response, const char* location_url) {
+    char header_buffer[512];
+    
+    // 302 Found 헤더와 Location 헤더를 포함합니다.
+    int status_code = 302;
+    const char* status_message = "Found";
+    
+    // 응답 본문은 비어 있습니다.
+    sprintf(header_buffer, 
+            "HTTP/1.1 %d %s\r\n"
+            "Location: %s\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: close\r\n"
+            "\r\n", 
+            status_code, status_message, location_url);
+
+    // 전체 응답(헤더만)을 response->content에 저장
+    response->content = strdup(header_buffer);
 }
-*/
 
 void free_http_response(HttpResponse* response) {
     if (response->content) {

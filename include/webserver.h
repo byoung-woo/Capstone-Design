@@ -44,6 +44,7 @@ void cleanup_ssl();
 void handle_request_routing(HttpRequest* request, HttpResponse* response);
 
 void build_response_from_file(HttpResponse* response, const char* file_path);
+void build_redirect_response(HttpResponse* response, const char* location_url);
 void free_http_request(HttpRequest* request);
 void free_http_response(HttpResponse* response);
 

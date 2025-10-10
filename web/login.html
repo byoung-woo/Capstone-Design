@@ -10,6 +10,8 @@
         <h1>로그인</h1>
     </header>
     <main>
+        <div id="alert-message" style="margin-bottom: 10px; font-weight: bold;"></div>
+
         <form action="/login" method="post">
             <p>이 웹서버는 AI 학습을 위해 동작합니다.</p>
             <label for="username">사용자명:</label>
@@ -21,5 +23,22 @@
         <br/>
         <p>계정이 없으신가요? <a href="/signup.html">회원가입</a></p>
     </main>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const alertDiv = document.getElementById('alert-message');
+            
+            if (params.get('error') === 'fail') {
+                alertDiv.style.color = 'red';
+                alertDiv.innerText = '⚠️ 로그인 실패: 사용자명 또는 비밀번호를 확인해주세요.';
+            } else if (params.get('status') === 'success') {
+                alertDiv.style.color = 'green';
+                alertDiv.innerText = '✅ 회원가입 성공! 로그인 해주세요.';
+                // 메시지 표시 후 URL에서 파라미터 제거
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
+    </script>
 </body>
 </html>

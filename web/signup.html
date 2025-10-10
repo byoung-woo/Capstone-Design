@@ -10,6 +10,8 @@
         <h1>회원가입</h1>
     </header>
     <main>
+        <div id="alert-message" style="color: red; margin-bottom: 10px; font-weight: bold;"></div>
+
         <form action="/signup" method="post">
             <p>새로운 계정을 생성하세요. 테스트 서버이기 때문에 실제 비밀번호를 입력하지 마세요!</p>
             <label for="username">사용자명:</label>
@@ -19,5 +21,24 @@
             <button type="submit">회원가입</button>
         </form>
     </main>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            const error = params.get('error');
+            const alertDiv = document.getElementById('alert-message');
+
+            if (error === 'fail') {
+                alertDiv.innerText = '⚠️ 회원가입 실패: 모든 정보를 입력했는지 확인해주세요.';
+            } else if (error === 'duplicate') {
+                alertDiv.innerText = '⚠️ 회원가입 실패: 이미 존재하는 사용자명입니다.';
+            }
+            
+            if (error) {
+                // 메시지 표시 후 URL에서 파라미터 제거
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
+    </script>
 </body>
 </html>

@@ -25,10 +25,10 @@ void handle_login(HttpRequest* request, HttpResponse* response) {
 
     // 데이터베이스를 통해 사용자 인증
     if (authenticate_user(username, password)) {
-        // 인증 성공 시, 대시보드 페이지 응답
-        build_response_from_file(response, "web/dashboard.html");
+        // [수정] 인증 성공 시: 대시보드로 리다이렉션 (302)
+        build_redirect_response(response, "/dashboard.html");
     } else {
-        // 인증 실패 시, 다시 로그인 페이지 응답
-        build_response_from_file(response, "web/login.html");
+        // [수정] 인증 실패 시: 로그인 실패 알림을 위해 쿼리 파라미터를 추가하여 리다이렉션
+        build_redirect_response(response, "/login.html?error=fail");
     }
 }
