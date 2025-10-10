@@ -16,6 +16,7 @@
 #include "response_builder.h"
 #include "logger.h"
 #include "db_manager.h"
+#include "rule_checker.h"
 
 // --- WAF/인증 기능 관련 헬퍼 함수 ---
 
@@ -205,6 +206,9 @@ int main() {
 
     init_database();
 
+    // [추가] WAF 룰셋 파일 로드
+    load_rules_from_file("rules.json");
+
     // TCP 소켓 생성
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == -1) {
@@ -264,5 +268,6 @@ int main() {
     close(server_socket);
     cleanup_database();
     cleanup_ssl();
+    cleanup_rules();
     return 0;
 }

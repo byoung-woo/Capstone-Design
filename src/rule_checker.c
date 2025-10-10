@@ -5,44 +5,111 @@
 #include <sys/socket.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <cjson/cJSON.h> // cJSON 라이브러리 포함
 
 #include "rule_checker.h"
 #include "logger.h"
 
-// --- 1. 공격 기법별로 룰셋을 명확하게 분리 ---
-
-// SQL Injection 룰셋
-const char* sql_injection_patterns[] = {
-    "' OR '1'='1'", "UNION SELECT", "--", "SLEEP(", NULL
-};
-
-// Cross-Site Scripting (XSS) 룰셋
-const char* xss_patterns[] = {
-    "<script>", "onerror=", "javascript:", NULL
-};
-
-// Path Traversal (디렉터리 탐색) 및 기타 시스템 명령어 관련 룰셋
-const char* path_traversal_patterns[] = {
-    "../", "/etc/passwd", NULL
-};
-
-
-// --- 2. 각 룰셋을 이름과 함께 구조체로 묶어서 관리 ---
+// --- 1. [수정] 동적 룰 관리를 위한 구조체 및 전역 변수 ---
 
 typedef struct {
-    const char* rule_name; // "SQL Injection", "XSS" 등
-    const char** patterns; // 위에서 정의한 패턴 배열
+    char* rule_name;    // "SQL Injection", "XSS" 등
+    char** patterns;    // 패턴 문자열 배열 (동적 할당)
+    int num_patterns; // 패턴의 개수
 } RuleGroup;
 
-// 모든 룰 그룹을 담는 배열
-const RuleGroup rule_groups[] = {
-    {"SQL Injection", sql_injection_patterns},
-    {"Cross-Site Scripting", xss_patterns},
-    {"Path Traversal", path_traversal_patterns},
-    {NULL, NULL} // 배열의 끝
-};
+// [수정] 모든 룰 그룹을 담는 동적 배열
+static RuleGroup* rule_groups = NULL;
+static int num_rule_groups = 0;
 
-// [추가] 문자열을 소문자로 변환하는 헬퍼 함수
+
+// --- 2. [추가] JSON 파일 로딩 및 메모리 해제 함수 ---
+
+// 파일 내용을 읽어오는 헬퍼 함수
+static char* read_file_content(const char* filepath) {
+    FILE* file = fopen(filepath, "rb");
+    if (!file) {
+        log_error("Failed to open rule file.");
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char* content = (char*)malloc(length + 1);
+    if (content) {
+        fread(content, 1, length, file);
+        content[length] = '\0';
+    }
+    fclose(file);
+    return content;
+}
+
+// JSON 파일에서 룰을 파싱하고 메모리에 로드하는 함수
+void load_rules_from_file(const char* filepath) {
+    char* file_content = read_file_content(filepath);
+    if (!file_content) return;
+
+    cJSON* root = cJSON_Parse(file_content);
+    if (!root) {
+        log_error("Failed to parse rule JSON file.");
+        free(file_content);
+        return;
+    }
+
+    cJSON* rules_array = cJSON_GetObjectItem(root, "rules");
+    if (!cJSON_IsArray(rules_array)) {
+        log_error("'rules' array not found in JSON.");
+        cJSON_Delete(root);
+        free(file_content);
+        return;
+    }
+
+    num_rule_groups = cJSON_GetArraySize(rules_array);
+    rule_groups = (RuleGroup*)malloc(num_rule_groups * sizeof(RuleGroup));
+
+    for (int i = 0; i < num_rule_groups; i++) {
+        cJSON* rule_item = cJSON_GetArrayItem(rules_array, i);
+        cJSON* rule_name_item = cJSON_GetObjectItem(rule_item, "rule_name");
+        cJSON* patterns_array = cJSON_GetObjectItem(rule_item, "patterns");
+
+        rule_groups[i].rule_name = strdup(cJSON_GetStringValue(rule_name_item));
+        rule_groups[i].num_patterns = cJSON_GetArraySize(patterns_array);
+        rule_groups[i].patterns = (char**)malloc(rule_groups[i].num_patterns * sizeof(char*));
+
+        for (int j = 0; j < rule_groups[i].num_patterns; j++) {
+            cJSON* pattern_item = cJSON_GetArrayItem(patterns_array, j);
+            rule_groups[i].patterns[j] = strdup(cJSON_GetStringValue(pattern_item));
+        }
+    }
+    
+    log_error("WAF rules loaded successfully.");
+    cJSON_Delete(root);
+    free(file_content);
+}
+
+// 로드된 룰 관련 동적 메모리를 해제하는 함수
+void cleanup_rules() {
+    if (rule_groups) {
+        for (int i = 0; i < num_rule_groups; i++) {
+            for (int j = 0; j < rule_groups[i].num_patterns; j++) {
+                free(rule_groups[i].patterns[j]);
+            }
+            free(rule_groups[i].patterns);
+            free(rule_groups[i].rule_name);
+        }
+        free(rule_groups);
+        rule_groups = NULL;
+        num_rule_groups = 0;
+        log_error("WAF rules cleaned up successfully.");
+    }
+}
+
+
+// --- 3. 기존 함수 수정 ---
+
+// 문자열을 소문자로 변환하는 헬퍼 함수 (기존과 동일)
 static char* to_lower_string(const char* str) {
     if (!str) return NULL;
     char* lower_str = strdup(str);
@@ -53,30 +120,27 @@ static char* to_lower_string(const char* str) {
     return lower_str;
 }
 
-// --- 3. 개선된 룰 검사 함수 ---
-
+// [수정] 동적으로 로드된 룰을 사용하여 공격을 탐지하는 함수
 int is_attack_detected(HttpRequest* request) {
-    char log_buffer[512];
+    if (!rule_groups) return 0; // 룰이 로드되지 않았으면 검사하지 않음
 
+    char log_buffer[512];
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
     getpeername(request->client_socket, (struct sockaddr*)&addr, &addr_len);
     char* client_ip = inet_ntoa(addr.sin_addr);
 
-    // [추가] 요청 경로와 본문을 소문자로 변환
     char* lower_path = to_lower_string(request->path);
     char* lower_body = to_lower_string(request->body);
 
-    int attack_found = 0; // 공격 탐지 여부 플래그
+    int attack_found = 0;
 
-    for (int i = 0; rule_groups[i].rule_name != NULL; i++) {
+    for (int i = 0; i < num_rule_groups; i++) {
         const RuleGroup* group = &rule_groups[i];
-
-        for (int j = 0; group->patterns[j] != NULL; j++) {
+        for (int j = 0; j < group->num_patterns; j++) {
             const char* pattern = group->patterns[j];
             const char* location = NULL;
 
-            // [수정] 소문자로 변환된 문자열에서 패턴을 검사
             if (lower_path && strstr(lower_path, pattern)) {
                 location = "PATH";
             } else if (lower_body && strstr(lower_body, pattern)) {
@@ -88,13 +152,13 @@ int is_attack_detected(HttpRequest* request) {
                          "[ATTACK DETECTED] client_ip=\"%s\" request_path=\"%s\" attack_type=\"%s\" rule=\"%s\" location=\"%s\"",
                          client_ip, request->path, group->rule_name, pattern, location);
                 log_error(log_buffer);
-                attack_found = 1; // 공격 탐지됨
-                goto cleanup; // [추가] 검사 종료를 위해 cleanup으로 이동
+                attack_found = 1;
+                goto cleanup;
             }
         }
     }
 
-cleanup: // [추가] 메모리 해제를 위한 레이블
+cleanup:
     free(lower_path);
     free(lower_body);
     return attack_found;
