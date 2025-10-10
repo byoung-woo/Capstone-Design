@@ -24,6 +24,7 @@ typedef struct {
     int client_socket;
     const char* raw_buffer;
     int bytes_read;
+    int keep_alive; 
 } HttpRequest;
 
 typedef struct {
@@ -34,11 +35,11 @@ typedef struct {
 // --- 함수 선언 ---
 void init_logger();
 void log_error(const char* message);
-void log_request(HttpRequest* request);
+void log_request(HttpRequest* request); 
 void cleanup_logger();
 
 void init_log_queue();
-void* log_sender_thread(void* arg);
+void* log_sender_thread(void* arg); 
 
 void init_ssl();
 SSL_CTX* get_ssl_context();
@@ -46,14 +47,15 @@ void cleanup_ssl();
 
 void handle_request_routing(HttpRequest* request, HttpResponse* response);
 
-void build_response_from_file(HttpResponse* response, const char* file_path);
-void build_redirect_response(HttpResponse* response, const char* location_url);
+void build_response_from_file(HttpRequest* request, HttpResponse* response, const char* file_path);
+void build_redirect_response(HttpResponse* response, const char* location_url); 
 void free_http_request(HttpRequest* request);
 void free_http_response(HttpResponse* response);
 
 void init_database();
 int authenticate_user(const char* username, const char* password);
 int insert_user(const char* username, const char* password);
+void cleanup_database();
 
 void handle_login(HttpRequest* request, HttpResponse* response);
 void handle_signup(HttpRequest* request, HttpResponse* response);

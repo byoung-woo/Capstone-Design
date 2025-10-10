@@ -137,3 +137,12 @@ int insert_user(const char* username, const char* password) {
     sqlite3_finalize(stmt);
     return 1;
 }
+// 데이터베이스 연결을 닫고 자원을 정리하는 함수
+// 데이터베이스 연결을 닫고 자원을 정리하는 함수
+void cleanup_database() {
+    if (db) {
+        sqlite3_close(db);
+        log_error("Database connection closed successfully.");
+        db = NULL;
+    }
+}

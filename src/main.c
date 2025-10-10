@@ -81,8 +81,7 @@ char* get_form_value(const char* body, const char* key, char* output, size_t out
     return output;
 }
 
-// --- HTTP 요청 파싱 함수 ---
-
+// HTTP 요청을 파싱하는 함수
 void parse_http_request(const char* buffer, HttpRequest* request) {
     char* buffer_copy = strdup(buffer);
     char* request_line = strtok(buffer_copy, "\r\n");
@@ -96,7 +95,7 @@ void parse_http_request(const char* buffer, HttpRequest* request) {
         if (method && path && version) {
             request->method = strdup(method);
             request->path = strdup(path);
-            url_decode(request->path); // 경로를 URL 디코딩하여 WAF 우회 방지
+            url_decode(request->path); 
             request->version = strdup(version);
         }
     }
@@ -105,12 +104,18 @@ void parse_http_request(const char* buffer, HttpRequest* request) {
     char* body_start = strstr(buffer, "\r\n\r\n");
     if (body_start) {
         body_start += 4; 
-        request->body = strdup(body_start); // 핸들러에서 디코딩됨
+        request->body = strdup(body_start); 
     } else {
         request->body = NULL;
     }
 
     request->headers = NULL;
+    request->keep_alive = 0; // [추가] 기본값 설정
+
+    // Connection 헤더 파싱 (Keep-Alive 확인)
+    if (strstr(buffer, "Connection: keep-alive") || strstr(buffer, "Connection: Keep-Alive")) {
+        request->keep_alive = 1;
+    }
 
     free(buffer_copy);
 }
@@ -257,6 +262,7 @@ int main() {
 
     // 서버 종료
     close(server_socket);
+    cleanup_database();
     cleanup_ssl();
     return 0;
 }

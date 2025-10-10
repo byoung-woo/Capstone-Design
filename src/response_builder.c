@@ -8,7 +8,8 @@
 #include "logger.h"
 #include "router.h"
 
-static void build_response_header(HttpResponse* response, const char* content_type, size_t content_length, int status_code) {
+// [수정] HttpRequest* request 파라미터 추가
+static void build_response_header(HttpRequest* request, HttpResponse* response, const char* content_type, size_t content_length, int status_code) {
     char status_message[64];
     
     if (status_code == 200) {
@@ -17,8 +18,16 @@ static void build_response_header(HttpResponse* response, const char* content_ty
         strcpy(status_message, "Not Found");
     } else if (status_code == 403) { // 403 상태 코드 메시지 추가
         strcpy(status_message, "Forbidden");
+    } else if (status_code == 302) {
+        strcpy(status_message, "Found");
     } else {
         strcpy(status_message, "Internal Server Error");
+    }
+
+    const char* connection_header = "Connection: close";
+    // [Keep-Alive 로직 적용] 요청이 keep_alive를 원하고 (1) 상태 코드가 200인 경우에만 keep-alive 응답
+    if (request && request->keep_alive && status_code == 200) {
+        connection_header = "Connection: keep-alive";
     }
 
     char header_buffer[512];
@@ -26,9 +35,9 @@ static void build_response_header(HttpResponse* response, const char* content_ty
             "HTTP/1.1 %d %s\r\n"
             "Content-Type: %s\r\n"
             "Content-Length: %zu\r\n"
-            "Connection: close\r\n"
+            "%s\r\n" // Connection 헤더를 동적으로 삽입
             "\r\n", 
-            status_code, status_message, content_type, content_length);
+            status_code, status_message, content_type, content_length, connection_header);
 
     response->header = strdup(header_buffer);
 }
@@ -92,7 +101,8 @@ void free_http_request(HttpRequest* request) {
     if (request->headers) free(request->headers);
 }
 
-void build_response_from_file(HttpResponse* response, const char* file_path) {
+// [수정] HttpRequest* request 파라미터 추가 (헤더 선언과 일치시킴)
+void build_response_from_file(HttpRequest* request, HttpResponse* response, const char* file_path) {
     char* file_content = NULL;
     size_t content_length = 0;
     int status_code = 200;
@@ -121,7 +131,8 @@ void build_response_from_file(HttpResponse* response, const char* file_path) {
         // 다른 파일 타입들...
     }
 
-    build_response_header(response, content_type, content_length, status_code);
+    // [수정] request를 build_response_header에 전달
+    build_response_header(request, response, content_type, content_length, status_code);
 
     size_t total_length = strlen(response->header) + content_length;
     response->content = (char*)malloc(total_length + 1);

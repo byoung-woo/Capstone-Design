@@ -8,4 +8,6 @@ int authenticate_user(const char* username, const char* password);
 // 새로운 사용자를 데이터베이스에 삽입하는 함수
 int insert_user(const char* username, const char* password);
 
+// 데이터베이스 연결을 닫고 자원을 정리하는 함수
+void cleanup_database();
 #endif
