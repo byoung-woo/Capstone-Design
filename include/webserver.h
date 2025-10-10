@@ -34,8 +34,11 @@ typedef struct {
 // --- 함수 선언 ---
 void init_logger();
 void log_error(const char* message);
-void log_request(int client_socket, const char* request_buffer, int bytes_read);
+void log_request(HttpRequest* request);
 void cleanup_logger();
+
+void init_log_queue();
+void* log_sender_thread(void* arg);
 
 void init_ssl();
 SSL_CTX* get_ssl_context();

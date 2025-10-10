@@ -47,9 +47,9 @@ void handle_request_routing(HttpRequest* request, HttpResponse* response) {
         return;
     }
 
-    // 2. (1차 통과 시) 요청 로그 기록 및 AI 서버로 전송
-    // log_request 함수는 이제 파일 기록과 네트워크 전송을 모두 담당합니다.
-    log_request(request->client_socket, request->raw_buffer, request->bytes_read); 
+    // 2. (1차 통과 시) 요청 로그 기록 및 AI 서버로 비동기 전송
+    // [수정] log_request에 HttpRequest*를 전달
+    log_request(request); 
 
     // 3. 정상적인 요청에 대한 라우팅 처리
     if (strcmp(request->method, "POST") == 0) {
@@ -71,3 +71,4 @@ void handle_request_routing(HttpRequest* request, HttpResponse* response) {
 
     build_response_from_file(response, "web/404.html");
 }
+

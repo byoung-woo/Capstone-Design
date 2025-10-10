@@ -17,7 +17,9 @@
 #include "logger.h"
 #include "db_manager.h"
 
-// [추가] URL 디코딩 헬퍼 함수
+// --- WAF/인증 기능 관련 헬퍼 함수 ---
+
+// URL 디코딩 헬퍼 함수
 static int hex_to_int(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -25,7 +27,7 @@ static int hex_to_int(char c) {
     return 0;
 }
 
-// [구현] URL 디코딩 함수: 문자열을 In-place로 디코딩합니다.
+// URL 디코딩 함수: 문자열을 In-place로 디코딩합니다.
 void url_decode(char *str) {
     char *p = str;
     char *q = str;
@@ -47,11 +49,10 @@ void url_decode(char *str) {
     *q = '\0';
 }
 
-// [구현] 폼 데이터에서 특정 키의 값을 안전하게 추출하고 URL 디코딩까지 수행하는 함수
+// 폼 데이터에서 특정 키의 값을 안전하게 추출하고 URL 디코딩까지 수행하는 함수
 char* get_form_value(const char* body, const char* key, char* output, size_t output_size) {
     if (!body || !key || !output) return NULL;
 
-    // 'key=' 형태의 문자열을 찾습니다.
     char key_with_equals[128];
     snprintf(key_with_equals, sizeof(key_with_equals), "%s=", key);
 
@@ -60,7 +61,6 @@ char* get_form_value(const char* body, const char* key, char* output, size_t out
     
     start += strlen(key_with_equals);
     
-    // '&' 문자나 문자열의 끝을 찾습니다.
     const char* end = strchr(start, '&');
     size_t len;
     if (end) {
@@ -70,21 +70,19 @@ char* get_form_value(const char* body, const char* key, char* output, size_t out
     }
 
     if (len >= output_size) {
-        // 버퍼 오버플로우 방지 및 안전하게 복사
         len = output_size - 1;
     }
 
     strncpy(output, start, len);
     output[len] = '\0';
 
-    // 추출된 값에 대해 URL 디코딩 적용 (핵심 보안 개선)
     url_decode(output);
 
     return output;
 }
 
+// --- HTTP 요청 파싱 함수 ---
 
-// HTTP 요청을 파싱하는 함수
 void parse_http_request(const char* buffer, HttpRequest* request) {
     char* buffer_copy = strdup(buffer);
     char* request_line = strtok(buffer_copy, "\r\n");
@@ -98,7 +96,7 @@ void parse_http_request(const char* buffer, HttpRequest* request) {
         if (method && path && version) {
             request->method = strdup(method);
             request->path = strdup(path);
-            url_decode(request->path); // [수정] 경로를 URL 디코딩하여 WAF 우회 방지
+            url_decode(request->path); // 경로를 URL 디코딩하여 WAF 우회 방지
             request->version = strdup(version);
         }
     }
@@ -106,25 +104,22 @@ void parse_http_request(const char* buffer, HttpRequest* request) {
     // POST 요청의 경우, 본문(body)을 파싱
     char* body_start = strstr(buffer, "\r\n\r\n");
     if (body_start) {
-        body_start += 4; // 헤더와 본문을 구분하는 빈 줄 다음으로 이동
-        // request->body는 핸들러에서 get_form_value를 통해 파싱되므로,
-        // 여기서는 raw body를 저장합니다.
-        request->body = strdup(body_start);
+        body_start += 4; 
+        request->body = strdup(body_start); // 핸들러에서 디코딩됨
     } else {
         request->body = NULL;
     }
 
-    // headers는 이 예제에서는 파싱하지 않음
     request->headers = NULL;
 
     free(buffer_copy);
 }
 
+// --- 클라이언트 요청 처리 함수 ---
 
-// 스레드에서 클라이언트 요청을 처리하는 함수
 void* handle_client(void* arg) {
     int client_socket = *((int*)arg);
-    free(arg); // 힙 메모리 해제
+    free(arg); 
 
     // SSL/TLS 핸들러를 사용하여 보안 연결 수립
     SSL_CTX* ssl_ctx = get_ssl_context();
@@ -142,31 +137,27 @@ void* handle_client(void* arg) {
     char buffer[BUFFER_SIZE];
     int bytes_read;
     
-    // 버퍼를 0으로 초기화하여 이전 데이터 잔여물 방지
     memset(buffer, 0, sizeof(buffer));
 
     // 클라이언트의 HTTP 요청 읽기 (HTTPS 보안 통신)
     bytes_read = SSL_read(ssl, buffer, sizeof(buffer) - 1);
     if (bytes_read > 0) {
-        buffer[bytes_read] = '\0'; // 문자열 끝 표시
+        buffer[bytes_read] = '\0'; 
 
-        // HTTP 요청 파싱
         HttpRequest request;
-        memset(&request, 0, sizeof(request)); // 구조체 초기화
+        memset(&request, 0, sizeof(request)); 
         
-        // 요청 버퍼와 소켓 정보를 HttpRequest에 저장
         request.client_socket = client_socket;
         request.raw_buffer = buffer;
         request.bytes_read = bytes_read;
 
         parse_http_request(buffer, &request);
         
-        // 요청에 맞는 응답 생성 및 전송
         HttpResponse response;
-        memset(&response, 0, sizeof(response)); // 구조체 초기화
+        memset(&response, 0, sizeof(response)); 
         
-        // 라우팅 함수를 호출하여 GET/POST 요청을 분기 처리
-        handle_request_routing(&request, &response);
+        // 라우팅 함수를 호출하여 GET/POST 요청을 분기 처리 (로그 기록은 이 내부에서 비동기적으로 처리됨)
+        handle_request_routing(&request, &response); 
         
         // 응답 전송 (HTTPS 보안 통신)
         SSL_write(ssl, response.content, strlen(response.content));
@@ -184,6 +175,8 @@ void* handle_client(void* arg) {
     return NULL;
 }
 
+// --- 메인 함수 ---
+
 // 메인 함수: 웹서버 초기화 및 실행
 int main() {
     int server_socket;
@@ -193,8 +186,17 @@ int main() {
     // SSL/TLS 컨텍스트 초기화
     init_ssl();
     
-    // 로거 모듈 초기화
+    // 로거 모듈 초기화 (파일 열기)
     init_logger();
+
+    // [성능 개선] 로그 큐 초기화 및 로그 전송 스레드 시작
+    init_log_queue();
+    pthread_t log_thread_id;
+    if (pthread_create(&log_thread_id, NULL, log_sender_thread, NULL) != 0) {
+        log_error("Log sender thread creation failed");
+        return 1;
+    }
+    pthread_detach(log_thread_id); // 서버 종료 시 자동으로 자원 해제
 
     init_database();
 

@@ -1,4 +1,4 @@
-// src/logger.c (TLS/SSL 암호화 적용)
+// src/logger.c (TLS/SSL 암호화 적용 및 비동기 로깅)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <cjson/cJSON.h>
 #include <unistd.h>
+#include <pthread.h> // [추가] 스레드 및 동기화
 // OpenSSL 헤더 추가
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -16,9 +17,64 @@
 
 #define ANALYZER_IP "172.20.10.2" // AI 분석 서버 IP 주소
 #define ANALYZER_PORT 5140
+#define LOG_QUEUE_SIZE 100 // [추가] 로그 큐 최대 크기
+
+// --- 로그 큐 관련 전역 변수 ---
+static char* log_queue[LOG_QUEUE_SIZE]; // 로그 메시지를 저장할 큐 (NULL로 초기화)
+static int log_queue_head = 0;
+static int log_queue_tail = 0;
+static int log_queue_count = 0; // 현재 큐에 있는 로그 수
+
+static pthread_mutex_t log_queue_mutex; // 큐 접근을 위한 뮤텍스
+static pthread_cond_t log_queue_cond;   // 큐에 로그가 들어왔음을 알리는 조건 변수
 
 static FILE* access_log_file;
 static FILE* attack_log_file;
+
+// --- 큐 초기화 및 관리 함수 ---
+void init_log_queue() {
+    pthread_mutex_init(&log_queue_mutex, NULL);
+    pthread_cond_init(&log_queue_cond, NULL);
+}
+
+// 큐에 로그를 푸시하고 대기 중인 스레드에게 알림 (호출자가 할당한 메모리 소유권 이전)
+static void push_log_to_queue(char* json_log_with_newline) {
+    pthread_mutex_lock(&log_queue_mutex);
+
+    if (log_queue_count < LOG_QUEUE_SIZE) {
+        log_queue[log_queue_tail] = json_log_with_newline; // 메모리 소유권 이전
+        log_queue_tail = (log_queue_tail + 1) % LOG_QUEUE_SIZE;
+        log_queue_count++;
+        pthread_cond_signal(&log_queue_cond); // [추가] 대기 중인 log_sender_thread에 알림
+    } else {
+        log_error("Log queue is full. Dropping log message.");
+        free(json_log_with_newline); // 버려진 로그는 해제
+    }
+
+    pthread_mutex_unlock(&log_queue_mutex);
+}
+
+// 큐에서 로그를 팝 (log_sender_thread 전용)
+static char* pop_log_from_queue() {
+    char* log_to_send = NULL;
+    
+    pthread_mutex_lock(&log_queue_mutex);
+
+    // 큐가 비어있으면 시그널을 기다립니다.
+    while (log_queue_count == 0) {
+        pthread_cond_wait(&log_queue_cond, &log_queue_mutex);
+    }
+
+    log_to_send = log_queue[log_queue_head];
+    log_queue[log_queue_head] = NULL; // 포인터 정리
+    log_queue_head = (log_queue_head + 1) % LOG_QUEUE_SIZE;
+    log_queue_count--;
+
+    pthread_mutex_unlock(&log_queue_mutex);
+    return log_to_send;
+}
+
+// --- 로깅 기본 함수 ---
 
 void init_logger() {
     access_log_file = fopen(ACCESS_LOG_FILE, "a");
@@ -38,22 +94,23 @@ void log_error(const char* message) {
     fflush(attack_log_file);
 }
 
-// 이 함수가 핵심적으로 변경됩니다.
-void send_log_to_analyzer(const char* log_with_newline) {
+// --- 로그 전송 스레드 구현 ---
+
+// AI 분석 서버로 로그를 SSL 통신으로 전송하는 핵심 로직 (재연결 포함)
+static void send_log_over_ssl(const char* log_with_newline) {
     int sock;
     struct sockaddr_in serv_addr;
     SSL_CTX *ctx = NULL;
     SSL *ssl = NULL;
 
     // 1. SSL 클라이언트 컨텍스트 생성
-    //    SSLv23_client_method()는 최신 프로토콜을 자동으로 협상합니다.
     ctx = SSL_CTX_new(SSLv23_client_method());
     if (!ctx) {
         log_error("Failed to create SSL context for analyzer client.");
         return;
     }
 
-    // 2. TCP 소켓 생성 및 연결 (기존과 동일)
+    // 2. TCP 소켓 생성 및 연결
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         log_error("Socket creation error for analyzer");
         SSL_CTX_free(ctx);
@@ -70,7 +127,8 @@ void send_log_to_analyzer(const char* log_with_newline) {
     }
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        log_error("Connection Failed to analyzer server");
+        // AI 서버가 연결되지 않은 경우 에러만 기록하고 종료 (메인 스레드를 블록하지 않음)
+        log_error("Connection Failed to analyzer server (Non-blocking)");
         close(sock);
         SSL_CTX_free(ctx);
         return;
@@ -80,12 +138,12 @@ void send_log_to_analyzer(const char* log_with_newline) {
     ssl = SSL_new(ctx);
     SSL_set_fd(ssl, sock);
 
-    // 4. SSL 핸드셰이크 수행 (암호화 채널 수립)
+    // 4. SSL 핸드셰이크 수행
     if (SSL_connect(ssl) <= 0) {
         log_error("SSL handshake failed with analyzer server.");
         ERR_print_errors_fp(stderr);
     } else {
-        // 5. 암호화된 채널로 데이터 전송 (send -> SSL_write)
+        // 5. 암호화된 채널로 데이터 전송
         SSL_write(ssl, log_with_newline, strlen(log_with_newline));
     }
 
@@ -99,22 +157,30 @@ void send_log_to_analyzer(const char* log_with_newline) {
 }
 
 
-// --- 이하 로직은 기존과 동일합니다 ---
-char* get_query(char* url) {
-    char* query = strchr(url, '?');
-    if (query) { *query = '\0'; return query + 1; }
-    return "";
-}
+// [추가] 로그 전송 전용 스레드 함수
+void* log_sender_thread(void* arg) {
+    char* json_log = NULL;
 
-int get_path_depth(const char* path) {
-    int depth = 0;
-    for (int i = 0; path[i] != '\0'; i++) {
-        if (path[i] == '/') depth++;
+    while (1) {
+        // 1. 큐에서 로그 메시지를 대기하며 꺼냄 (큐가 비어있으면 대기)
+        json_log = pop_log_from_queue();
+
+        if (json_log) {
+            // 2. AI 분석 서버로 로그 전송 (이 작업이 스레드 내부에서 비동기적으로 실행됨)
+            send_log_over_ssl(json_log);
+            
+            // 3. 큐에서 소유권을 가져온 메모리 해제
+            free(json_log);
+            json_log = NULL;
+        }
     }
-    return depth > 0 ? depth : 1;
+    return NULL;
 }
 
-void log_request(int client_socket, const char* request_buffer, int bytes_read) {
+// --- 메인 핸들링 함수 (비동기 로그 기록 및 파싱 최적화) ---
+
+// [수정] 함수 시그니처 변경: HttpRequest*를 파라미터로 받음
+void log_request(HttpRequest* request) {
     time_t now = time(NULL);
     struct tm* t = localtime(&now);
     char iso_time_str[64];
@@ -122,32 +188,21 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
 
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
-    getpeername(client_socket, (struct sockaddr*)&addr, &addr_len);
+    getpeername(request->client_socket, (struct sockaddr*)&addr, &addr_len);
     char* client_ip = inet_ntoa(addr.sin_addr);
 
-    char* request_copy = strdup(request_buffer);
-    char* request_line = strtok(request_copy, "\n");
-    if (!request_line) { free(request_copy); return; }
 
-    char* http_version_end = strstr(request_line, "HTTP/1.1");
-    if (http_version_end != NULL && (http_version_end = strchr(http_version_end, '\r')) != NULL) { *http_version_end = '\0'; }
-
-    char* method = strtok(request_line, " ");
-    char* path_and_query = strtok(NULL, " ");
-    char* version = strtok(NULL, " ");
-
-    if (!method || !path_and_query || !version) { free(request_copy); return; }
-
-
+    // [수정] HttpRequest*에서 이미 파싱된 정보를 사용합니다. (파싱 중복 제거)
     cJSON* log_json = cJSON_CreateObject();
     cJSON_AddStringToObject(log_json, "timestamp", iso_time_str);
     cJSON_AddStringToObject(log_json, "client_ip", client_ip);
-    cJSON_AddStringToObject(log_json, "request_method", method);
-    cJSON_AddStringToObject(log_json, "request_path", path_and_query);
-    cJSON_AddStringToObject(log_json, "http_version", version);
-    cJSON_AddNumberToObject(log_json, "bytes", bytes_read);
+    cJSON_AddStringToObject(log_json, "request_method", request->method); 
+    cJSON_AddStringToObject(log_json, "request_path", request->path); 
+    cJSON_AddStringToObject(log_json, "http_version", request->version); 
+    cJSON_AddNumberToObject(log_json, "bytes", request->bytes_read);
 
-    const char* user_agent_start = strstr(request_buffer, "User-Agent: ");
+    // User-Agent 파싱 (raw_buffer 사용이 불가피하므로 기존 로직 유지)
+    const char* user_agent_start = strstr(request->raw_buffer, "User-Agent: ");
     if (user_agent_start) {
         user_agent_start += strlen("User-Agent: ");
         const char* user_agent_end = strchr(user_agent_start, '\r');
@@ -161,37 +216,31 @@ void log_request(int client_socket, const char* request_buffer, int bytes_read) 
     }
 
     // POST 요청 본문을 찾아서 JSON에 추가
-    if (strcmp(method, "POST") == 0) {
-        const char* body_start = strstr(request_buffer, "\r\n\r\n");
-        if (body_start) {
-            body_start += 4; // 헤더와 본문을 구분하는 빈 줄 다음으로 이동
-            cJSON_AddStringToObject(log_json, "request_body", body_start);
-        } else {
-            cJSON_AddStringToObject(log_json, "request_body", "");
-        }
+    if (strcmp(request->method, "POST") == 0) {
+        cJSON_AddStringToObject(log_json, "request_body", request->body ? request->body : "");
     }
+
 
     char* json_string = cJSON_PrintUnformatted(log_json);
     if (json_string) {
+        // 1. 파일에 동기적으로 로그 기록 (Access Log)
         fprintf(access_log_file, "%s\n", json_string);
         fflush(access_log_file);
         
+        // 2. 비동기 전송을 위해 큐에 푸시 (메인 스레드 블록킹 최소화)
         char* log_to_send = malloc(strlen(json_string) + 2);
         if (log_to_send) {
             strcpy(log_to_send, json_string);
             strcat(log_to_send, "\n");
             
-            send_log_to_analyzer(log_to_send);
-            
-            free(log_to_send);
+            // 큐에 푸시하고 메모리 소유권 이전
+            push_log_to_queue(log_to_send); 
         }
         
         free(json_string);
     }
     
     cJSON_Delete(log_json);
-    free(request_copy);
-
 }
 
 void cleanup_logger() {
