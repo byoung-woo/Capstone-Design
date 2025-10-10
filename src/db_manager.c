@@ -2,6 +2,12 @@
 #include <sqlite3.h>
 #include "db_manager.h"
 #include "webserver.h" // log_error 함수 사용을 위해 포함
+#include <openssl/rand.h> // [추가] 솔트 생성을 위해
+#include <openssl/evp.h>  // [추가] PBKDF2 해싱을 위해
+#include <string.h>       // [추가] strcmp 등 사용을 위해
+
+#define SALT_LEN 16
+#define HASH_LEN 64
 
 // 데이터베이스 핸들러
 static sqlite3 *db;
@@ -26,7 +32,8 @@ void init_database() {
     const char *sql = "CREATE TABLE IF NOT EXISTS users("
                       "ID INTEGER PRIMARY KEY AUTOINCREMENT,"
                       "username TEXT NOT NULL UNIQUE,"
-                      "password TEXT NOT NULL,"
+                      "salt TEXT NOT NULL,"
+                      "hashed_password TEXT NOT NULL,"
                       "role TEXT NOT NULL DEFAULT 'user');";
     
     char *err_msg = 0;
@@ -44,27 +51,37 @@ void init_database() {
 }
 
 // 사용자 인증 함수
+// authenticate_user 함수 전체를 아래 코드로 교체
 int authenticate_user(const char* username, const char* password) {
-    char* sql;
-    int rc;
-    int authenticated = 0;
     sqlite3_stmt *stmt;
+    char sql[] = "SELECT salt, hashed_password FROM users WHERE username = ?;";
+    int authenticated = 0;
 
-    // SQL Injection 방지를 위해 파라미터 바인딩 사용
-    sql = "SELECT COUNT(*) FROM users WHERE username = ? AND password = ?;";
-
-    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
-    if (rc != SQLITE_OK) {
-        log_error("SQL prepare error.");
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, 0) != SQLITE_OK) {
+        log_error("SQL prepare error for authentication.");
         return 0;
     }
 
     sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, password, -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
-        if (sqlite3_column_int(stmt, 0) > 0) {
-            authenticated = 1;
+        const unsigned char* salt_hex = sqlite3_column_text(stmt, 0);
+        const unsigned char* stored_hash_hex = sqlite3_column_text(stmt, 1);
+
+        unsigned char new_hash[HASH_LEN];
+        // PBKDF2_HMAC_SHA256을 사용하여 입력된 비밀번호를 해싱
+        PKCS5_PBKDF2_HMAC(password, strlen(password),
+                          salt_hex, strlen((char*)salt_hex), 4096, EVP_sha256(),
+                          HASH_LEN, new_hash);
+        
+        // 생성된 해시를 16진수 문자열로 변환하여 비교
+        char new_hash_hex[HASH_LEN * 2 + 1];
+        for (int i = 0; i < HASH_LEN; i++) {
+            sprintf(new_hash_hex + (i * 2), "%02x", new_hash[i]);
+        }
+        
+        if (strcmp((char*)stored_hash_hex, new_hash_hex) == 0) {
+            authenticated = 1; // 해시가 일치하면 인증 성공
         }
     }
 
@@ -72,28 +89,52 @@ int authenticate_user(const char* username, const char* password) {
     return authenticated;
 }
 
-// 새로운 사용자를 데이터베이스에 삽입하는 함수
-int insert_user(const char* username, const char* password) {
-    const char* sql = "INSERT INTO users (username, password) VALUES (?, ?);";
-    sqlite3_stmt* stmt;
-    int rc;
 
-    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
-    if (rc != SQLITE_OK) {
+// insert_user 함수 전체를 아래 코드로 교체
+int insert_user(const char* username, const char* password) {
+    const char* sql = "INSERT INTO users (username, salt, hashed_password) VALUES (?, ?, ?);";
+    sqlite3_stmt* stmt;
+    
+    // 1. 솔트 생성
+    unsigned char salt[SALT_LEN];
+    if (!RAND_bytes(salt, sizeof(salt))) {
+        log_error("Failed to generate salt.");
+        return 0;
+    }
+    char salt_hex[SALT_LEN * 2 + 1];
+    for(int i = 0; i < SALT_LEN; i++) {
+        sprintf(salt_hex + (i * 2), "%02x", salt[i]);
+    }
+
+    // 2. 비밀번호 해싱
+    unsigned char hash[HASH_LEN];
+    if (!PKCS5_PBKDF2_HMAC(password, strlen(password), 
+                           (unsigned char*)salt_hex, strlen(salt_hex), 4096, EVP_sha256(), 
+                           HASH_LEN, hash)) {
+        log_error("Failed to hash password.");
+        return 0;
+    }
+    char hash_hex[HASH_LEN * 2 + 1];
+    for (int i = 0; i < HASH_LEN; i++) {
+        sprintf(hash_hex + (i * 2), "%02x", hash[i]);
+    }
+
+    // 3. 데이터베이스에 저장
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, 0) != SQLITE_OK) {
         log_error("SQL prepare error for user insertion.");
         return 0;
     }
 
     sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, password, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, salt_hex, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, hash_hex, -1, SQLITE_TRANSIENT);
 
-    rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
         log_error("SQL step error during user insertion.");
         sqlite3_finalize(stmt);
-        return 0; // 삽입 실패
+        return 0;
     }
 
     sqlite3_finalize(stmt);
-    return 1; // 삽입 성공
+    return 1;
 }

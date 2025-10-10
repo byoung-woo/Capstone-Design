@@ -42,10 +42,8 @@ void handle_signup(HttpRequest* request, HttpResponse* response) {
         
         // password 파싱
         password_start += 9;
-        int len = strlen(password_start);
-        if (len < sizeof(password)) {
-            strcpy(password, password_start);
-        }
+        strncpy(password, password_start, sizeof(password) - 1);
+        password[sizeof(password) - 1] = '\0';
     }
 
     // 새로운 사용자를 데이터베이스에 추가

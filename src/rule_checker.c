@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <ctype.h>
+#include <stdlib.h>
 
 #include "rule_checker.h"
 #include "logger.h"
@@ -40,45 +42,60 @@ const RuleGroup rule_groups[] = {
     {NULL, NULL} // 배열의 끝
 };
 
+// [추가] 문자열을 소문자로 변환하는 헬퍼 함수
+static char* to_lower_string(const char* str) {
+    if (!str) return NULL;
+    char* lower_str = strdup(str);
+    if (!lower_str) return NULL;
+    for (int i = 0; lower_str[i]; i++) {
+        lower_str[i] = tolower(lower_str[i]);
+    }
+    return lower_str;
+}
 
 // --- 3. 개선된 룰 검사 함수 ---
 
 int is_attack_detected(HttpRequest* request) {
     char log_buffer[512];
 
-    // 클라이언트 IP 주소 가져오기
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
     getpeername(request->client_socket, (struct sockaddr*)&addr, &addr_len);
     char* client_ip = inet_ntoa(addr.sin_addr);
 
-    // 모든 룰 그룹을 순회
+    // [추가] 요청 경로와 본문을 소문자로 변환
+    char* lower_path = to_lower_string(request->path);
+    char* lower_body = to_lower_string(request->body);
+
+    int attack_found = 0; // 공격 탐지 여부 플래그
+
     for (int i = 0; rule_groups[i].rule_name != NULL; i++) {
         const RuleGroup* group = &rule_groups[i];
 
-        // 현재 그룹에 속한 모든 패턴을 순회
         for (int j = 0; group->patterns[j] != NULL; j++) {
             const char* pattern = group->patterns[j];
             const char* location = NULL;
 
-            // 요청의 경로(path) 또는 본문(body)에 패턴이 있는지 확인
-            if (request->path && strstr(request->path, pattern)) {
+            // [수정] 소문자로 변환된 문자열에서 패턴을 검사
+            if (lower_path && strstr(lower_path, pattern)) {
                 location = "PATH";
-            } else if (request->body && strstr(request->body, pattern)) {
+            } else if (lower_body && strstr(lower_body, pattern)) {
                 location = "BODY";
             }
 
-            // 공격이 탐지된 경우
             if (location) {
-                // 로그에 탐지된 공격 유형(rule_name)을 추가하여 기록
                 snprintf(log_buffer, sizeof(log_buffer),
                          "[ATTACK DETECTED] client_ip=\"%s\" request_path=\"%s\" attack_type=\"%s\" rule=\"%s\" location=\"%s\"",
                          client_ip, request->path, group->rule_name, pattern, location);
                 log_error(log_buffer);
-                return 1; // 공격 탐지됨
+                attack_found = 1; // 공격 탐지됨
+                goto cleanup; // [추가] 검사 종료를 위해 cleanup으로 이동
             }
         }
     }
 
-    return 0; // 모든 룰을 통과 (안전함)
+cleanup: // [추가] 메모리 해제를 위한 레이블
+    free(lower_path);
+    free(lower_body);
+    return attack_found;
 }

@@ -31,10 +31,10 @@ void handle_login(HttpRequest* request, HttpResponse* response) {
         
         // password 파싱
         password_start += 9; // "password=" 길이
-        int len = strlen(password_start);
-        if (len < sizeof(password)) {
-            strcpy(password, password_start);
-        }
+        // 1. password 버퍼 크기만큼만 안전하게 복사합니다.
+        strncpy(password, password_start, sizeof(password) - 1);
+        // 2. 버퍼의 마지막을 항상 NULL 문자로 설정하여 오버플로우를 방지합니다.
+        password[sizeof(password) - 1] = '\0';
     }
 
     // 데이터베이스를 통해 사용자 인증
