@@ -168,9 +168,6 @@ void* handle_client(void* arg) {
         request.bwd_packets++;
         request.bwd_bytes += bytes_read;
 
-        HttpRequest request;
-        memset(&request, 0, sizeof(request)); 
-        
         request.client_socket = client_socket;
         request.raw_buffer = buffer;
         request.bytes_read = bytes_read;
