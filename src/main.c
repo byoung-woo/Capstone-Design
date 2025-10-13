@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 // 프로젝트의 모든 헤더 파일 포함
 #include "webserver.h"
@@ -140,6 +141,19 @@ void* handle_client(void* arg) {
         close(client_socket);
         return NULL;
     }
+    // --- 시간 측정 및 카운팅 변수 초기화 ---
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL); // 연결 시작 시간 기록
+
+    HttpRequest request;
+    memset(&request, 0, sizeof(request));
+    request.flow_start_time_sec = start_time.tv_sec;
+    request.flow_start_time_usec = start_time.tv_usec;
+    request.fwd_packets = 0;
+    request.bwd_packets = 0;
+    request.fwd_bytes = 0;
+    request.bwd_bytes = 0;
+
 
     char buffer[BUFFER_SIZE];
     int bytes_read;
@@ -150,6 +164,9 @@ void* handle_client(void* arg) {
     bytes_read = SSL_read(ssl, buffer, sizeof(buffer) - 1);
     if (bytes_read > 0) {
         buffer[bytes_read] = '\0'; 
+
+        request.bwd_packets++;
+        request.bwd_bytes += bytes_read;
 
         HttpRequest request;
         memset(&request, 0, sizeof(request)); 
@@ -166,9 +183,20 @@ void* handle_client(void* arg) {
         // 라우팅 함수를 호출하여 GET/POST 요청을 분기 처리 (로그 기록은 이 내부에서 비동기적으로 처리됨)
         handle_request_routing(&request, &response); 
         
-        // 응답 전송 (HTTPS 보안 통신)
-        SSL_write(ssl, response.content, strlen(response.content));
+        // 응답 전송
+        int bytes_written = SSL_write(ssl, response.content, strlen(response.content));
         
+        // --- 송신 정보 업데이트 ---
+        if (bytes_written > 0) {
+            request.fwd_packets++;
+            request.fwd_bytes += bytes_written;
+        }
+
+        // --- 최종 연결 시간 계산 및 로그 기록 ---
+        gettimeofday(&end_time, NULL);
+        request.flow_duration = ((end_time.tv_sec - request.flow_start_time_sec) * 1000000) + (end_time.tv_usec - request.flow_start_time_usec);
+        log_request(&request); 
+
         // 메모리 해제
         free_http_request(&request);
         free_http_response(&response);

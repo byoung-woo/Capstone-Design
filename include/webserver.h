@@ -25,6 +25,14 @@ typedef struct {
     const char* raw_buffer;
     int bytes_read;
     int keep_alive; 
+
+    long flow_start_time_sec;  // 연결 시작 시간 (초)
+    long flow_start_time_usec; // 연결 시작 시간 (마이크로초)
+    long flow_duration;        // 총 연결 시간 (마이크로초)
+    int fwd_packets;           // 서버 -> 클라이언트 패킷 수
+    int bwd_packets;           // 클라이언트 -> 서버 패킷 수
+    long fwd_bytes;            // 서버 -> 클라이언트 데이터 크기
+    long bwd_bytes;            // 클라이언트 -> 서버 데이터 크기
 } HttpRequest;
 
 typedef struct {
