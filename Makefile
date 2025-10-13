@@ -2,7 +2,7 @@
 CC = gcc
 
 # 소스 파일 목록에 rule_checker.c 추가
-SRCS = src/main.c src/db_manager.c src/response_builder.c src/login_handler.c src/signup_handler.c src/logger.c src/ssl_handler.c src/router.c src/rule_checker.c
+SRCS = src/main.c src/db_manager.c src/response_builder.c src/login_handler.c src/signup_handler.c src/logger.c src/ssl_handler.c src/router.c src/rule_checker.c src/ip_manager.c
 
 OBJS = $(SRCS:.c=.o)
 TARGET = webserver

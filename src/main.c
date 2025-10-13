@@ -17,6 +17,7 @@
 #include "logger.h"
 #include "db_manager.h"
 #include "rule_checker.h"
+#include "ip_manager.h"
 
 // --- WAF/인증 기능 관련 헬퍼 함수 ---
 
@@ -208,6 +209,16 @@ int main() {
 
     // [추가] WAF 룰셋 파일 로드
     load_rules_from_file("rules.json");
+    init_ip_manager();
+
+        // [추가] IP 리스트 파일 감시 스레드 시작
+    pthread_t ip_monitor_thread_id;
+    if (pthread_create(&ip_monitor_thread_id, NULL, ip_list_monitor_thread, NULL) != 0) {
+        log_error("IP list monitor thread creation failed");
+    } else {
+        pthread_detach(ip_monitor_thread_id); // 메인 스레드와 분리
+        log_error("IP list monitor thread started.");
+    }
 
     // TCP 소켓 생성
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -269,5 +280,6 @@ int main() {
     cleanup_database();
     cleanup_ssl();
     cleanup_rules();
+    cleanup_ip_manager();
     return 0;
 }
