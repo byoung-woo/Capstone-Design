@@ -179,73 +179,8 @@ void* log_sender_thread(void* arg) {
 
 // --- 메인 핸들링 함수 (비동기 로그 기록 및 파싱 최적화) ---
 
-// // 기존의 log_request 함수 시그니처 변경: HttpRequest*를 파라미터로 받음
-// void log_request(HttpRequest* request) {
-//     time_t now = time(NULL);
-//     struct tm* t = localtime(&now);
-//     char iso_time_str[64];
-//     strftime(iso_time_str, sizeof(iso_time_str), "%Y-%m-%dT%H:%M:%S%z", t);
 
-//     struct sockaddr_in addr;
-//     socklen_t addr_len = sizeof(addr);
-//     getpeername(request->client_socket, (struct sockaddr*)&addr, &addr_len);
-//     char* client_ip = inet_ntoa(addr.sin_addr);
-
-
-//     // HttpRequest*에서 이미 파싱된 정보를 사용합니다. (파싱 중복 제거)
-//     cJSON* log_json = cJSON_CreateObject();
-//     cJSON_AddStringToObject(log_json, "timestamp", iso_time_str);
-//     cJSON_AddStringToObject(log_json, "client_ip", client_ip);
-//     cJSON_AddStringToObject(log_json, "request_method", request->method); 
-//     cJSON_AddStringToObject(log_json, "request_path", request->path); 
-//     cJSON_AddStringToObject(log_json, "http_version", request->version); 
-//     cJSON_AddNumberToObject(log_json, "bytes", request->bytes_read);
-
-//     // User-Agent 파싱 (raw_buffer 사용이 불가피하므로 기존 로직 유지)
-//     const char* user_agent_start = strstr(request->raw_buffer, "User-Agent: ");
-//     if (user_agent_start) {
-//         user_agent_start += strlen("User-Agent: ");
-//         const char* user_agent_end = strchr(user_agent_start, '\r');
-//         if (user_agent_end) {
-//             char user_agent_str[256];
-//             int len = user_agent_end - user_agent_start;
-//             strncpy(user_agent_str, user_agent_start, len);
-//             user_agent_str[len] = '\0';
-//             cJSON_AddStringToObject(log_json, "user_agent", user_agent_str);
-//         }
-//     }
-
-//     // POST 요청 본문을 찾아서 JSON에 추가
-//     if (strcmp(request->method, "POST") == 0) {
-//         cJSON_AddStringToObject(log_json, "request_body", request->body ? request->body : "");
-//     }
-
-
-//     char* json_string = cJSON_PrintUnformatted(log_json);
-//     if (json_string) {
-//         // 1. 파일에 동기적으로 로그 기록 (Access Log)
-//         fprintf(access_log_file, "%s\n", json_string);
-//         fflush(access_log_file);
-        
-//         // 2. 비동기 전송을 위해 큐에 푸시 (메인 스레드 블록킹 최소화)
-//         char* log_to_send = malloc(strlen(json_string) + 2);
-//         if (log_to_send) {
-//             strcpy(log_to_send, json_string);
-//             strcat(log_to_send, "\n");
-            
-//             // 큐에 푸시하고 메모리 소유권 이전
-//             push_log_to_queue(log_to_send); 
-//         }
-        
-//         free(json_string);
-//     }
-    
-//     cJSON_Delete(log_json);
-// }
-
-// src/logger.c 의 수정된 log_request 함수
-
-// [수정] 함수 시그니처 변경: HttpRequest*를 파라미터로 받음
+// [수정] 0으로 하드코딩된 불필요한 특성들을 모두 제거한 log_request 함수
 void log_request(HttpRequest* request) {
     time_t now = time(NULL);
     struct tm* t = localtime(&now);
@@ -257,92 +192,32 @@ void log_request(HttpRequest* request) {
     getpeername(request->client_socket, (struct sockaddr*)&addr, &addr_len);
     char* client_ip = inet_ntoa(addr.sin_addr);
 
-    // [수정] 새로운 통계 정보 기반으로 JSON 생성
+    // [수정] C 서버가 '실제로' 계산하는 통계 정보만 JSON에 추가
     cJSON* log_json = cJSON_CreateObject();
     cJSON_AddStringToObject(log_json, "timestamp", iso_time_str);
     cJSON_AddStringToObject(log_json, "client_ip", client_ip);
 
     // --- 핵심 통계 정보 추가 ---
-    // AI 모델이 학습한 CIC-IDS2017의 컬럼명과 정확히 일치시켜야 합니다.
+    // (AI 모델이 이 특성들만으로 재학습되어야 합니다)
     cJSON_AddNumberToObject(log_json, "flow duration", request->flow_duration);
     cJSON_AddNumberToObject(log_json, "total fwd packets", request->fwd_packets);
     cJSON_AddNumberToObject(log_json, "total backward packets", request->bwd_packets);
     cJSON_AddNumberToObject(log_json, "total length of fwd packets", request->fwd_bytes);
     cJSON_AddNumberToObject(log_json, "total length of bwd packets", request->bwd_bytes);
     
-    // --- 나머지 AI 모델 학습 특성들은 0으로 채워서 전송 ---
-    // (향후 C 서버에서 직접 측정하는 기능을 추가로 구현할 수 있습니다.)
-    cJSON_AddNumberToObject(log_json, "fwd packet length max", 0);
-    cJSON_AddNumberToObject(log_json, "fwd packet length min", 0);
-    cJSON_AddNumberToObject(log_json, "fwd packet length mean", 0);
-    cJSON_AddNumberToObject(log_json, "fwd packet length std", 0);
-    cJSON_AddNumberToObject(log_json, "bwd packet length max", 0);
-    cJSON_AddNumberToObject(log_json, "bwd packet length min", 0);
-    cJSON_AddNumberToObject(log_json, "bwd packet length mean", 0);
-    cJSON_AddNumberToObject(log_json, "bwd packet length std", 0);
-    cJSON_AddNumberToObject(log_json, "flow bytes/s", (request->fwd_bytes + request->bwd_bytes) / ((request->flow_duration / 1000000.0) + 1e-6));
-    cJSON_AddNumberToObject(log_json, "flow packets/s", (request->fwd_packets + request->bwd_packets) / ((request->flow_duration / 1000000.0) + 1e-6));
-    cJSON_AddNumberToObject(log_json, "flow iat mean", 0);
-    cJSON_AddNumberToObject(log_json, "flow iat std", 0);
-    cJSON_AddNumberToObject(log_json, "flow iat max", 0);
-    cJSON_AddNumberToObject(log_json, "flow iat min", 0);
-    cJSON_AddNumberToObject(log_json, "fwd iat total", 0);
-    cJSON_AddNumberToObject(log_json, "fwd iat mean", 0);
-    cJSON_AddNumberToObject(log_json, "fwd iat std", 0);
-    cJSON_AddNumberToObject(log_json, "fwd iat max", 0);
-    cJSON_AddNumberToObject(log_json, "fwd iat min", 0);
-    cJSON_AddNumberToObject(log_json, "bwd iat total", 0);
-    cJSON_AddNumberToObject(log_json, "bwd iat mean", 0);
-    cJSON_AddNumberToObject(log_json, "bwd iat std", 0);
-    cJSON_AddNumberToObject(log_json, "bwd iat max", 0);
-    cJSON_AddNumberToObject(log_json, "bwd iat min", 0);
-    cJSON_AddNumberToObject(log_json, "fwd psh flags", 0);
-    cJSON_AddNumberToObject(log_json, "bwd psh flags", 0);
-    cJSON_AddNumberToObject(log_json, "fwd urg flags", 0);
-    cJSON_AddNumberToObject(log_json, "bwd urg flags", 0);
-    cJSON_AddNumberToObject(log_json, "fwd header length", 0);
-    cJSON_AddNumberToObject(log_json, "bwd header length", 0);
-    cJSON_AddNumberToObject(log_json, "packets per second", (request->fwd_packets + request->bwd_packets) / ((request->flow_duration / 1000000.0) + 1e-6));
-    cJSON_AddNumberToObject(log_json, "min packet length", 0);
-    cJSON_AddNumberToObject(log_json, "max packet length", 0);
-    cJSON_AddNumberToObject(log_json, "packet length mean", 0);
-    cJSON_AddNumberToObject(log_json, "packet length std", 0);
-    cJSON_AddNumberToObject(log_json, "packet length variance", 0);
-    cJSON_AddNumberToObject(log_json, "fin flag count", 0);
-    cJSON_AddNumberToObject(log_json, "syn flag count", 0);
-    cJSON_AddNumberToObject(log_json, "rst flag count", 0);
-    cJSON_AddNumberToObject(log_json, "psh flag count", 0);
-    cJSON_AddNumberToObject(log_json, "ack flag count", 0);
-    cJSON_AddNumberToObject(log_json, "urg flag count", 0);
-    cJSON_AddNumberToObject(log_json, "cwe flag count", 0);
-    cJSON_AddNumberToObject(log_json, "ece flag count", 0);
-    cJSON_AddNumberToObject(log_json, "down/up ratio", 0);
-    cJSON_AddNumberToObject(log_json, "average packet size", 0);
-    cJSON_AddNumberToObject(log_json, "avg fwd segment size", 0);
-    cJSON_AddNumberToObject(log_json, "avg bwd segment size", 0);
-    cJSON_AddNumberToObject(log_json, "fwd header length.1", 0);
-    cJSON_AddNumberToObject(log_json, "fwd avg bytes/bulk", 0);
-    cJSON_AddNumberToObject(log_json, "fwd avg packets/bulk", 0);
-    cJSON_AddNumberToObject(log_json, "fwd avg bulk rate", 0);
-    cJSON_AddNumberToObject(log_json, "bwd avg bytes/bulk", 0);
-    cJSON_AddNumberToObject(log_json, "bwd avg packets/bulk", 0);
-    cJSON_AddNumberToObject(log_json, "bwd avg bulk rate", 0);
-    cJSON_AddNumberToObject(log_json, "subflow fwd packets", 0);
-    cJSON_AddNumberToObject(log_json, "subflow fwd bytes", 0);
-    cJSON_AddNumberToObject(log_json, "subflow bwd packets", 0);
-    cJSON_AddNumberToObject(log_json, "subflow bwd bytes", 0);
-    cJSON_AddNumberToObject(log_json, "init_win_bytes_forward", 0);
-    cJSON_AddNumberToObject(log_json, "init_win_bytes_backward", 0);
-    cJSON_AddNumberToObject(log_json, "act_data_pkt_fwd", 0);
-    cJSON_AddNumberToObject(log_json, "min_seg_size_forward", 0);
-    cJSON_AddNumberToObject(log_json, "active mean", 0);
-    cJSON_AddNumberToObject(log_json, "active std", 0);
-    cJSON_AddNumberToObject(log_json, "active max", 0);
-    cJSON_AddNumberToObject(log_json, "active min", 0);
-    cJSON_AddNumberToObject(log_json, "idle mean", 0);
-    cJSON_AddNumberToObject(log_json, "idle std", 0);
-    cJSON_AddNumberToObject(log_json, "idle max", 0);
-    cJSON_AddNumberToObject(log_json, "idle min", 0);
+    // 1e-6은 0으로 나누는 것을 방지하기 위함
+    double duration_sec = (request->flow_duration / 1000000.0) + 1e-6;
+    cJSON_AddNumberToObject(log_json, "flow bytes/s", (request->fwd_bytes + request->bwd_bytes) / duration_sec);
+    cJSON_AddNumberToObject(log_json, "flow packets/s", (request->fwd_packets + request->bwd_packets) / duration_sec);
+    cJSON_AddNumberToObject(log_json, "packets per second", (request->fwd_packets + request->bwd_packets) / duration_sec);
+
+    // (참고) HttpRequest 구조체에는 더 많은 정보가 있으나 (예: method, path),
+    // 현재 AI 모델(CIC-IDS2017)은 이 통계 특성들만 사용합니다.
+    // 만약 모델 학습에 method, path 등을 사용했다면 C 서버에서도 여기서 추가해야 합니다.
+    // (예: cJSON_AddStringToObject(log_json, "request_method", request->method);)
+    // (예: cJSON_AddStringToObject(log_json, "request_body", request->body ? request->body : "");)
+
+    // --- [수정 완료] 0으로 하드코딩된 나머지 모든 특성들 삭제 ---
     // -----------------------------------------------------
 
     char* json_string = cJSON_PrintUnformatted(log_json);

@@ -192,6 +192,11 @@ void* handle_client(void* arg) {
         // --- 최종 연결 시간 계산 및 로그 기록 ---
         gettimeofday(&end_time, NULL);
         request.flow_duration = ((end_time.tv_sec - request.flow_start_time_sec) * 1000000) + (end_time.tv_usec - request.flow_start_time_usec);
+        
+        if (request.flow_duration == 0) {
+            request.flow_duration = 1; 
+        }
+        
         log_request(&request); 
 
         // 메모리 해제
