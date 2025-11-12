@@ -1,0 +1,27 @@
+# 1. 컴파일 관련 파일
+# --------------------------------
+# 컴파일 중간 산출물 (오브젝트 파일)
+*.o
+
+# Makefiles에서 생성되는 최종 실행 파일들
+1_http/webserver
+1_http/client
+2_https/server
+2_https/client
+3_raspberry/webserver
+
+
+# 2. 보안 및 민감 정보
+# --------------------------------
+*.key
+
+# SSL 인증서 관련 디렉토리 (인증서와 키 모두 제외)
+certs/
+
+
+# 3. 로그 파일
+# --------------------------------
+# 3_raspberry/webserver.h 에서 정의된 로그 파일
+webserver.log
+# 기타 모든 로그 파일
+*.log
