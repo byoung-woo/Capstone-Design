@@ -10,7 +10,16 @@
       "fields": [
         {"type": "mrkdwn", "text": "*Source IP:*\n`\($ip)`"},
         {"type": "mrkdwn", "text": "*Request Path:*\n`\($path)`"},
-        {"type": "mrkdwn", "text": "*Detected Rule:*\n`\($detect_rule)`"},
+        
+        {
+          "type": "mrkdwn",
+          "text": "*Attack Type:*\n`\($rule_name)`"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Detected Pattern:*\n`\($pattern)`"
+        },
+        
         {"type": "mrkdwn", "text": "*Detected In:*\n`\($detect_in)`"},
         {"type": "mrkdwn", "text": "*Risk Level:*\n\($risk)"},
         {"type": "mrkdwn", "text": "*Action Taken:*\n\($action)"}

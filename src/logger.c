@@ -1,4 +1,6 @@
+#define _GNU_SOURCE // [추가] strcasestr 함수 사용을 위해
 // src/logger.c (TLS/SSL 암호화 적용 및 비동기 로깅)
+// [수정] AI 모델이 요구하는 HTTP 컨텐츠 기반 로깅으로 변경
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +41,7 @@ void init_log_queue() {
 
 // 큐에 로그를 푸시하고 대기 중인 스레드에게 알림 (호출자가 할당한 메모리 소유권 이전)
 static void push_log_to_queue(char* json_log_with_newline) {
+// ... existing code ...
     pthread_mutex_lock(&log_queue_mutex);
 
     if (log_queue_count < LOG_QUEUE_SIZE) {
@@ -177,10 +180,45 @@ void* log_sender_thread(void* arg) {
     return NULL;
 }
 
-// --- 메인 핸들링 함수 (비동기 로그 기록 및 파싱 최적화) ---
+// --- [신규] AI 모델 호환을 위한 헬퍼 함수 ---
+
+/**
+ * @brief raw_buffer에서 User-Agent 헤더 값을 찾아 반환합니다.
+ * @param raw_request 전체 HTTP 요청 원본 버퍼
+ * @return User-Agent 문자열 (동적 할당됨, 사용 후 free 필요) 또는 "N/A" (실패 시).
+ * [수정] User-Agent를 찾지 못하면 "N/A" 대신 NULL을 반환하여 JSON에 추가되지 않도록 함.
+ */
+static char* get_user_agent_from_raw(const char* raw_request) {
+    if (!raw_request) return NULL;
+
+    const char* header_key = "User-Agent: ";
+    const char* start = strstr(raw_request, header_key);
+
+    if (!start) {
+        // 대소문자 구분 없이 재시도 (U'u'ser-Agent)
+        start = strcasestr(raw_request, header_key);
+    }
+
+    if (!start) return NULL;
+
+    start += strlen(header_key); // "User-Agent: " 다음 위치로 포인터 이동
+
+    // 값의 끝(다음 \r\n)을 찾음
+    const char* end = strstr(start, "\r\n");
+    if (!end) return NULL; // 헤더 형식이 잘못된 경우
+
+    size_t length = end - start;
+    char* user_agent = (char*)malloc(length + 1);
+    if (!user_agent) return NULL;
+
+    strncpy(user_agent, start, length);
+    user_agent[length] = '\0';
+
+    return user_agent;
+}
 
 
-// [수정] 0으로 하드코딩된 불필요한 특성들을 모두 제거한 log_request 함수
+// --- [수정] AI 모델이 요구하는 HTTP 컨텐츠 기반 로깅 함수 ---
 void log_request(HttpRequest* request) {
     time_t now = time(NULL);
     struct tm* t = localtime(&now);
@@ -192,33 +230,68 @@ void log_request(HttpRequest* request) {
     getpeername(request->client_socket, (struct sockaddr*)&addr, &addr_len);
     char* client_ip = inet_ntoa(addr.sin_addr);
 
-    // [수정] C 서버가 '실제로' 계산하는 통계 정보만 JSON에 추가
+    // [수정] AI 모델이 학습한 '컨텐츠' 기반 특성을 JSON에 추가
     cJSON* log_json = cJSON_CreateObject();
+    
+    // (참고) timestamp와 client_ip는 모델 학습에는 사용되지 않았지만,
+    // 로깅 및 추적을 위해 여전히 유용하므로 포함합니다.
     cJSON_AddStringToObject(log_json, "timestamp", iso_time_str);
     cJSON_AddStringToObject(log_json, "client_ip", client_ip);
 
-    // --- 핵심 통계 정보 추가 ---
-    // (AI 모델이 이 특성들만으로 재학습되어야 합니다)
+    // --- AI 모델 학습에 사용된 핵심 필드 ---
+    
+    // 1. request_method (모델 입력: categorical_features)
+    if (request->method) {
+        cJSON_AddStringToObject(log_json, "request_method", request->method);
+    } else {
+        cJSON_AddStringToObject(log_json, "request_method", "N/A");
+    }
+
+    // 2. request_path (모델 입력: numeric_features, rule features)
+    if (request->path) {
+        cJSON_AddStringToObject(log_json, "request_path", request->path);
+    } else {
+        cJSON_AddStringToObject(log_json, "request_path", "/");
+    }
+
+    // 3. http_version (모델 입력: categorical_features)
+    if (request->version) {
+        cJSON_AddStringToObject(log_json, "http_version", request->version);
+    } else {
+        cJSON_AddStringToObject(log_json, "http_version", "HTTP/1.1");
+    }
+
+    // 4. request_body (모델 입력: numeric_features, rule features, high_cardinality_features)
+    if (request->body) {
+        cJSON_AddStringToObject(log_json, "request_body", request->body);
+    } else {
+        cJSON_AddStringToObject(log_json, "request_body", ""); // 모델이 ""(빈 문자열)로 학습함
+    }
+
+    // 5. user_agent (모델 입력: high_cardinality_features)
+    // raw_buffer에서 직접 파싱 시도
+    char* user_agent = get_user_agent_from_raw(request->raw_buffer);
+    if (user_agent) {
+        cJSON_AddStringToObject(log_json, "user_agent", user_agent);
+        free(user_agent); // 헬퍼 함수에서 할당된 메모리 해제
+    } else {
+        cJSON_AddStringToObject(log_json, "user_agent", "N/A"); // 찾지 못한 경우
+    }
+
+    // --- [삭제] 기존 네트워크 통계 정보 (AI 모델이 학습하지 않음) ---
+    /*
     cJSON_AddNumberToObject(log_json, "flow duration", request->flow_duration);
     cJSON_AddNumberToObject(log_json, "total fwd packets", request->fwd_packets);
     cJSON_AddNumberToObject(log_json, "total backward packets", request->bwd_packets);
     cJSON_AddNumberToObject(log_json, "total length of fwd packets", request->fwd_bytes);
     cJSON_AddNumberToObject(log_json, "total length of bwd packets", request->bwd_bytes);
     
-    // 1e-6은 0으로 나누는 것을 방지하기 위함
     double duration_sec = (request->flow_duration / 1000000.0) + 1e-6;
     cJSON_AddNumberToObject(log_json, "flow bytes/s", (request->fwd_bytes + request->bwd_bytes) / duration_sec);
     cJSON_AddNumberToObject(log_json, "flow packets/s", (request->fwd_packets + request->bwd_packets) / duration_sec);
     cJSON_AddNumberToObject(log_json, "packets per second", (request->fwd_packets + request->bwd_packets) / duration_sec);
-
-    // (참고) HttpRequest 구조체에는 더 많은 정보가 있으나 (예: method, path),
-    // 현재 AI 모델(CIC-IDS2017)은 이 통계 특성들만 사용합니다.
-    // 만약 모델 학습에 method, path 등을 사용했다면 C 서버에서도 여기서 추가해야 합니다.
-    // (예: cJSON_AddStringToObject(log_json, "request_method", request->method);)
-    // (예: cJSON_AddStringToObject(log_json, "request_body", request->body ? request->body : "");)
-
-    // --- [수정 완료] 0으로 하드코딩된 나머지 모든 특성들 삭제 ---
-    // -----------------------------------------------------
+    */
+    // --- [삭제 완료] ---
 
     char* json_string = cJSON_PrintUnformatted(log_json);
     if (json_string) {
@@ -248,3 +321,4 @@ void cleanup_logger() {
     if (access_log_file) fclose(access_log_file);
     if (attack_log_file) fclose(attack_log_file);
 }
+

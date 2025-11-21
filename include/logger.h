@@ -7,7 +7,7 @@
 
 void init_logger();
 void log_error(const char* message);
-// [수정] log_request 함수의 파라미터를 HttpRequest*로 변경
+// [수정] log_request 함수의 파라미터를 AI 모델에 맞게 HttpRequest*로 변경
 void log_request(HttpRequest* request); 
 void cleanup_logger();
 
@@ -16,3 +16,4 @@ void init_log_queue();
 void* log_sender_thread(void* arg); 
 
 #endif
+

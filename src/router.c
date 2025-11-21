@@ -92,16 +92,16 @@ void handle_request_routing(HttpRequest* request, HttpResponse* response) {
         }
     }
 
-    // // 4순위: WAF 룰 기반 공격 탐지
-    // if (is_attack_detected(request)) {
-    //     snprintf(log_msg, sizeof(log_msg), "[IP BLOCKED] client_ip=\"%s\" dynamically blocked by WAF rule.", client_ip);
-    //     log_error(log_msg);
-    //     block_ip_dynamically(client_ip); // IP를 동적 차단 목록에 추가
-    //     build_response_from_file(request, response, "web/403.html");
-    //     return;
-    // }
+    // 4순위: WAF 룰 기반 공격 탐지
+    if (is_attack_detected(request)) {
+        snprintf(log_msg, sizeof(log_msg), "[IP BLOCKED] client_ip=\"%s\" dynamically blocked by WAF rule.", client_ip);
+        log_error(log_msg);
+        block_ip_dynamically(client_ip); // IP를 동적 차단 목록에 추가
+        build_response_from_file(request, response, "web/403.html");
+        return;
+    }
 process_normal_request:
-    log_request(request); 
+    // log_request(request); // [삭제] 이 호출은 이제 main.c에서 처리됩니다.
 
     if (strcmp(request->method, "POST") == 0) {
         if (strcmp(request->path, "/login") == 0) {
@@ -122,4 +122,3 @@ process_normal_request:
 
     build_response_from_file(request, response, "web/404.html");
 }
-

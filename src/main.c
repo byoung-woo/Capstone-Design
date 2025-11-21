@@ -197,6 +197,7 @@ void* handle_client(void* arg) {
             request.flow_duration = 1; 
         }
         
+        // [수정] AI 모델 호환을 위해 인수를 1개만 받도록 수정
         log_request(&request); 
 
         // 메모리 해제

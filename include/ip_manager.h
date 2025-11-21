@@ -9,7 +9,7 @@
 #define IP_TABLE_SIZE 1024
 #define REQUEST_LIMIT 20
 #define TIME_WINDOW_SECONDS 5
-#define BLOCK_DURATION_SECONDS 60
+#define BLOCK_DURATION_SECONDS 1
 #define FILE_CHECK_INTERVAL_SECONDS 10 // 파일 변경 감지 주기 (10초)
 
 // ... (IPStatus 열거형은 기존과 동일) ...

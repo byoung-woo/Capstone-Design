@@ -1,4 +1,4 @@
-// response_builder.c
+// src/response_builder.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +29,8 @@ static void build_response_header(HttpRequest* request, HttpResponse* response, 
     if (request && request->keep_alive && status_code == 200) {
         connection_header = "Connection: keep-alive";
     }
+
+    response->status_code = status_code; // [추가] 응답 구조체에 상태 코드 저장
 
     char header_buffer[512];
     sprintf(header_buffer, 
@@ -73,6 +75,9 @@ void build_redirect_response(HttpResponse* response, const char* location_url) {
     int status_code = 302;
     const char* status_message = "Found";
     
+    response->status_code = status_code; // [추가]
+    response->response_bytes = 0;        // [추가]
+
     // 응답 본문은 비어 있습니다.
     sprintf(header_buffer, 
             "HTTP/1.1 %d %s\r\n"
@@ -133,6 +138,8 @@ void build_response_from_file(HttpRequest* request, HttpResponse* response, cons
 
     // [수정] request를 build_response_header에 전달
     build_response_header(request, response, content_type, content_length, status_code);
+
+    response->response_bytes = content_length; // [추가] 응답 본문 크기 저장
 
     size_t total_length = strlen(response->header) + content_length;
     response->content = (char*)malloc(total_length + 1);
