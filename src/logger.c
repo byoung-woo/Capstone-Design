@@ -302,8 +302,8 @@ void log_request(HttpRequest* request) {
         }
         
         // 2. 비동기 전송을 위해 큐에 푸시 (메인 스레드 블록킹 최소화)
-        char* log_to_send = malloc(strlen(json_string) + 2);
-        if (log_to_send) {
+        if (request->blocked_by_waf == 0) {
+            char* log_to_send = malloc(strlen(json_string) + 2);
             strcpy(log_to_send, json_string);
             strcat(log_to_send, "\n");
             

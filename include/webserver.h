@@ -25,6 +25,7 @@ typedef struct {
     const char* raw_buffer;
     int bytes_read;
     int keep_alive; 
+    int blocked_by_waf;
 
     long flow_start_time_sec;  // 연결 시작 시간 (초)
     long flow_start_time_usec; // 연결 시작 시간 (마이크로초)

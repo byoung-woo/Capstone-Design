@@ -70,6 +70,7 @@ void handle_request_routing(HttpRequest* request, HttpResponse* response) {
     if (status == IP_BLACKLISTED) {
         snprintf(log_msg, sizeof(log_msg), "[REQUEST DENIED] client_ip=\"%s\" is permanently blocked by blacklist.", client_ip);
         log_error(log_msg);
+        request->blocked_by_waf = 1;
         build_response_from_file(request, response, "web/403.html");
         return;
     }
@@ -78,6 +79,7 @@ void handle_request_routing(HttpRequest* request, HttpResponse* response) {
     if (status == IP_DYNAMICALLY_BLOCKED) {
         snprintf(log_msg, sizeof(log_msg), "[REQUEST DENIED] client_ip=\"%s\" is temporarily blocked. Sending 429.", client_ip);
         log_error(log_msg);
+        request->blocked_by_waf = 1;
         build_too_many_requests_response(response);
         return;
     }
@@ -97,11 +99,11 @@ void handle_request_routing(HttpRequest* request, HttpResponse* response) {
         snprintf(log_msg, sizeof(log_msg), "[IP BLOCKED] client_ip=\"%s\" dynamically blocked by WAF rule.", client_ip);
         log_error(log_msg);
         block_ip_dynamically(client_ip); // IP를 동적 차단 목록에 추가
+        request->blocked_by_waf = 1;
         build_response_from_file(request, response, "web/403.html");
         return;
     }
 process_normal_request:
-    // log_request(request); // [삭제] 이 호출은 이제 main.c에서 처리됩니다.
 
     if (strcmp(request->method, "POST") == 0) {
         if (strcmp(request->path, "/login") == 0) {
