@@ -116,7 +116,36 @@ sudo apt-get install gcc make libssl-dev libsqlite3-dev libcjson-dev jq
 
 ---
 
-### 2. 빌드 및 실행 (최종 버전: `4_waf_ai_server/`)
+### 2. SSL 인증서 생성 (OpenSSL)
+
+서버는 `certs/server.key`, `certs/server.crt` 파일을 사용하여 TLS 핸드셰이크를 수행합니다.  
+최초 실행 전 다음과 같이 OpenSSL을 이용해 개인키(`.key`)와 자체 서명 인증서(`.crt`)를 생성합니다.
+
+```bash
+cd 4_waf_ai_server/certs
+
+# 1) 서버 개인키 생성 (2048비트)
+openssl genrsa -out server.key 2048
+
+# 2) 서버 인증서 서명 요청(CSR) + 자체 서명 인증서 생성 (유효기간: 365일)
+openssl req -new -x509 -key server.key -out server.crt -days 365 \
+  -subj "/C=KR/ST=Daejeon/L=Daejeon/O=Capstone/OU=Security/CN=localhost"
+```
+
+- 개발/테스트 환경에서는 `CN=localhost`로 사용해도 무관합니다.  
+- 실제 배포 시에는 접속 도메인 또는 IP에 맞게 `CN` 값을 변경하는 것이 좋습니다.
+- 생성이 끝나면 디렉토리 구조는 다음과 같습니다.
+
+```plaintext
+4_waf_ai_server/
+└── certs/
+    ├── server.key   # OpenSSL로 생성한 서버 개인키
+    └── server.crt   # OpenSSL로 생성한 서버 인증서
+```
+
+---
+
+### 3. 빌드 및 실행 (최종 버전: `4_waf_ai_server/`)
 
 ```bash
 cd 4_waf_ai_server
@@ -127,7 +156,7 @@ make
 
 ---
 
-### 3. Slack 알림 설정 (선택 사항)
+### 4. Slack 알림 설정 (선택 사항)
 
 Slack 알림을 받으려면 `config.sh` 파일을 생성하고 Webhook URL을 설정해야 합니다.  
 (`config.sh`는 보안상 `.gitignore`에 포함하는 것을 권장합니다.)
