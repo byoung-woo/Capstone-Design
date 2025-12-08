@@ -6,11 +6,12 @@
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
+#define SERVER_IP "127.0.0.1"  
 
 int main() {
     int sock;
     struct sockaddr_in server_addr;
-    char request[] = "GET / HTTP/1.1\r\nHost: <서버_IP>\r\n\r\n";
+    char request[] = "GET / HTTP/1.1\r\nHost: " SERVER_IP "\r\n\r\n";
     char buffer[BUFFER_SIZE];
 
     // 1. 소켓 생성 (TCP 소켓)
@@ -24,7 +25,7 @@ int main() {
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     // 아래의 <서버_IP>를 실제 서버의 IP 주소로 변경해야 함
-    if (inet_pton(AF_INET, "192.168.1.100", &server_addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr) <= 0) {
         perror("유효하지 않은 주소 또는 주소 변환 실패");
         exit(EXIT_FAILURE);
     }

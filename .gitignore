@@ -1,4 +1,5 @@
 
+
 # --- 컴파일 및 빌드 관련 ---
 *.o
 webserver
@@ -34,4 +35,10 @@ nohup.out
 ip_whitelist.txt
 ip_blacklist.txt
 
+# Makefiles에서 생성되는 최종 실행 파일들
+1_http/webserver
+1_http/client
+2_https/server
+2_https/client
+3_raspberry/webserver
 
