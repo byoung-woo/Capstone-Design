@@ -1,7 +1,7 @@
 # 🍓 Embedded Multi-threaded Web Server (Raspberry Pi Optimized)
 
 ## 📌 프로젝트 개요
-이 모듈은 단일 스레드 기반이었던 이전 버전들의 한계를 극복하고, **라즈베리파이(Raspberry Pi)**와 같은 임베디드 리눅스 환경에서 다중 클라이언트 접속을 효율적으로 처리하기 위해 설계된 멀티스레드 HTTPS 웹 서버입니다.  
+이 모듈은 단일 스레드 기반이었던 이전 버전들의 한계를 극복하고, 라즈베리파이(Raspberry Pi)와 같은 임베디드 리눅스 환경에서 다중 클라이언트 접속을 효율적으로 처리하기 위해 설계된 멀티스레드 HTTPS 웹 서버입니다.  
 `pthread` 라이브러리를 이용한 동시성 프로그래밍(Concurrency Programming)을 적용하여 I/O 블로킹 문제를 해결했으며, 데이터 분석 용이성을 위해 **JSON 포맷의 구조화된 로깅 시스템**을 도입했습니다.
 
 ---
@@ -11,7 +11,7 @@
 ### 1️⃣ 멀티스레딩 (Multi-threading) 아키텍처
 - **Thread-per-Request 모델**: `pthread_create`를 사용하여 클라이언트 연결마다 별도의 작업 스레드를 생성합니다.  
 - **Non-blocking Accept**: 메인 스레드는 `accept()` 루프를 돌며 연결 수립 즉시 워커 스레드에게 소켓 제어권을 넘겨, 새로운 연결 요청에 즉각 반응할 수 있도록 설계했습니다.  
-- **Resource Management**: `pthread_detach`를 사용하여 스레드 종료 시 시스템 자원(메모리, 스택 등)이 자동으로 회수되도록 하여, 장시간 가동 시 **메모리 누수(Memory Leak)**를 방지했습니다.
+- **Resource Management**: `pthread_detach`를 사용하여 스레드 종료 시 시스템 자원(메모리, 스택 등)이 자동으로 회수되도록 하여, 장시간 가동 시 메모리 누수(Memory Leak)를 방지했습니다.
 
 ### 2️⃣ 구조화된 로깅 (Structured Logging via cJSON)
 - 단순 텍스트 로그 대신, `cJSON` 라이브러리를 사용하여 요청 정보를 **JSON 포맷**으로 기록합니다.  

@@ -2,7 +2,7 @@
 
 ## 📌 프로젝트 개요
 이 모듈은 프로젝트의 최종 완성 단계로, 3_raspberry의 멀티스레드 웹 서버 위에 **C언어 기반의 자체 웹 방화벽(WAF)**, **SQLite3 사용자 인증**, 그리고 **AI 기반 위협 탐지 시스템**을 통합한 버전입니다.  
-임베디드 장비가 단순한 웹 서비스 제공을 넘어, **지능형 보안 엣지 디바이스(Intelligent Security Edge Device)**로서 기능할 수 있음을 증명하는 데 초점을 맞췄습니다.
+임베디드 장비가 단순한 웹 서비스 제공을 넘어, 지능형 보안 엣지 디바이스(Intelligent Security Edge Device)로서 기능할 수 있음을 증명하는 데 초점을 맞췄습니다.
 
 ---
 
@@ -16,7 +16,7 @@
 - **File-based Management**: `ip_whitelist.txt`, `ip_blacklist.txt` 변경 사항을 별도 스레드가 실시간 감지(Hot-Reloading)하여 재시작 없이 정책을 반영합니다.
 
 #### Layer 2: AI Anomaly Detection (Off-loading)
-- **Asynchronous Log Shipping**: 메인 웹 서버의 응답 속도 저하를 막기 위해, `logger.c`에서 **별도의 스레드(Log Sender Thread)**와 **메시지 큐(Message Queue)**를 운용하여 AI 분석 서버로 로그를 비동기 전송합니다.  
+- **Asynchronous Log Shipping**: 메인 웹 서버의 응답 속도 저하를 막기 위해, `logger.c`에서 별도의 스레드(Log Sender Thread)와 메시지 큐(Message Queue)를 운용하여 AI 분석 서버로 로그를 비동기 전송합니다.  
 - **Anomaly Detection**: 전송된 로그는 Python 기반의 **Autoencoder 모델**이 분석하며, 알려지지 않은 공격(Zero-day)이나 이상 행위를 탐지합니다.
 
 ---
@@ -33,6 +33,7 @@
 ---
 
 ## 🏗️ 시스템 아키텍처 (System Architecture)
+![로고 파일](./images/Architecture.png)
 ```plaintext
 [Client]  <-- (TLS 1.3) -->  [ 4_waf_ai_server (C) ]
                                      |
