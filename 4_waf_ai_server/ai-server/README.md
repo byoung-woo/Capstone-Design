@@ -18,7 +18,7 @@
 
 ## 📂 디렉토리 구조
 ```plaintext
-ai_engine/
+ai_server/
 ├── ai_analyzer.py          # 메인 실행 파일 (AI 서버)
 ├── requirements.txt        # 필요 라이브러리 목록
 ├── config.json     # 설정 파일 예시 (Slack Webhook)
@@ -77,7 +77,7 @@ cp config_example.json config.json
 ## 🚀 실행 방법
 C 웹 서버를 실행하기 전에 **AI 분석 서버**를 먼저 실행하여 대기 상태로 만듭니다.
 ```bash
-# ai_engine 디렉토리 내부에서 실행
+# ai_server 디렉토리 내부에서 실행
 python ai_analyzer.py
 ```
 
