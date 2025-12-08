@@ -73,7 +73,5 @@ void handle_signup(HttpRequest* request, HttpResponse* response);
 
 int is_attack_detected(HttpRequest* request);
 
-// void url_decode(char *str); 
-// char* get_form_value(const char* body, const char* key, char* output, size_t output_size);
 
 #endif
