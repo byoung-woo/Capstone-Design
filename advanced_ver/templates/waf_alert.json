@@ -1,0 +1,40 @@
+{
+  "text": "[🚨 1차 방어 시스템 탐지] 위험도: \($risk)",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {"type": "plain_text", "text": "🚨 1차 방어 시스템 탐지 (C-WAF)"}
+    },
+    {
+      "type": "section",
+      "fields": [
+        {"type": "mrkdwn", "text": "*Source IP:*\n`\($ip)`"},
+        {"type": "mrkdwn", "text": "*Request Path:*\n`\($path)`"},
+        
+        {
+          "type": "mrkdwn",
+          "text": "*Attack Type:*\n`\($rule_name)`"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Detected Pattern:*\n`\($pattern)`"
+        },
+        
+        {"type": "mrkdwn", "text": "*Detected In:*\n`\($detect_in)`"},
+        {"type": "mrkdwn", "text": "*Risk Level:*\n\($risk)"},
+        {"type": "mrkdwn", "text": "*Action Taken:*\n\($action)"}
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*Recommendation:*\n`\($recommend)`" }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {"type": "mrkdwn", "text": "ts=\($ts) KST • server=rpi-capstone"}
+      ]
+    }
+  ]
+}

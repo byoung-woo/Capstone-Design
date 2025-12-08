@@ -1,0 +1,77 @@
+// include/webserver.h
+#ifndef WEBSERVER_H
+#define WEBSERVER_H
+
+#include <stdlib.h>
+#include <openssl/ssl.h>
+
+// --- 상수 및 매크로 ---
+#define SERVER_PORT 8443
+#define BUFFER_SIZE 4096
+// 로그 파일을 두 종류로 분리
+#define ACCESS_LOG_FILE "webserver_access.log"
+#define ATTACK_LOG_FILE "webserver_attack.log"
+#define DB_FILE "webserver.db" 
+#define CERT_FILE "certs/server.crt"
+#define KEY_FILE "certs/server.key"
+
+typedef struct {
+    char* method;
+    char* path;
+    char* version;
+    char* body;
+    char* headers;
+    int client_socket;
+    const char* raw_buffer;
+    int bytes_read;
+    int keep_alive; 
+    int blocked_by_waf;
+
+    long flow_start_time_sec;  // 연결 시작 시간 (초)
+    long flow_start_time_usec; // 연결 시작 시간 (마이크로초)
+    long flow_duration;        // 총 연결 시간 (마이크로초)
+    int fwd_packets;           // 서버 -> 클라이언트 패킷 수
+    int bwd_packets;           // 클라이언트 -> 서버 패킷 수
+    long fwd_bytes;            // 서버 -> 클라이언트 데이터 크기
+    long bwd_bytes;            // 클라이언트 -> 서버 데이터 크기
+} HttpRequest;
+
+typedef struct {
+    char* header;
+    char* content;
+    int status_code;
+    long response_bytes;
+} HttpResponse;
+
+// --- 함수 선언 ---
+void init_logger();
+void log_error(const char* message);
+void log_request(HttpRequest* request); 
+void cleanup_logger();
+
+void init_log_queue();
+void* log_sender_thread(void* arg); 
+
+void init_ssl();
+SSL_CTX* get_ssl_context();
+void cleanup_ssl();
+
+void handle_request_routing(HttpRequest* request, HttpResponse* response);
+
+void build_response_from_file(HttpRequest* request, HttpResponse* response, const char* file_path);
+void build_redirect_response(HttpResponse* response, const char* location_url); 
+void free_http_request(HttpRequest* request);
+void free_http_response(HttpResponse* response);
+
+void init_database();
+int authenticate_user(const char* username, const char* password);
+int insert_user(const char* username, const char* password);
+void cleanup_database();
+
+void handle_login(HttpRequest* request, HttpResponse* response);
+void handle_signup(HttpRequest* request, HttpResponse* response);
+
+int is_attack_detected(HttpRequest* request);
+
+
+#endif

@@ -1,0 +1,49 @@
+{
+  "rules": [
+    {
+      "rule_name": "SQL Injection",
+      "patterns": [
+        "' OR '1'='1'", "UNION SELECT", "--", "SLEEP(", "BENCHMARK(",
+        "information_schema", "@@version"
+      ]
+    },
+    {
+      "rule_name": "Cross-Site Scripting",
+      "patterns": [
+        "<script>", "onerror=", "javascript:", "onload=", "<img>", "<iframe>",
+        "onmouseover="
+      ]
+    },
+    {
+      "rule_name": "Path Traversal",
+      "patterns": [
+        "../", "/etc/passwd", "..\\", "/proc/self/environ"
+      ]
+    },
+    {
+      "rule_name": "Command Injection",
+      "patterns": [
+        "&&", "||", ";", "|", "`",
+        "cat ", "ls ", "pwd", "wget ", "curl ", "exec("
+      ]
+    },
+    {
+      "rule_name": "File Inclusion",
+      "patterns": [
+        "file://", "php://", "phar://"
+      ]
+    },
+    {
+      "rule_name": "Information Leakage",
+      "patterns": [
+        "/.git/", "/.env", ".bak", ".config", "web.config"
+      ]
+    },
+    {
+      "rule_name": "Log Forging",
+      "patterns": [
+        "%0a", "%0d", "\\n", "\\r"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+// src/response_builder.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "response_builder.h"
+#include "webserver.h"
+#include "logger.h"
+#include "router.h"
+
+
+static void build_response_header(HttpRequest* request, HttpResponse* response, const char* content_type, size_t content_length, int status_code) {
+    char status_message[64];
+    
+    if (status_code == 200) {
+        strcpy(status_message, "OK");
+    } else if (status_code == 404) {
+        strcpy(status_message, "Not Found");
+    } else if (status_code == 403) { 
+        strcpy(status_message, "Forbidden");
+    } else if (status_code == 302) {
+        strcpy(status_message, "Found");
+    } else {
+        strcpy(status_message, "Internal Server Error");
+    }
+
+    const char* connection_header = "Connection: close";
+    //  요청이 keep_alive를 원하고 (1) 상태 코드가 200인 경우에만 keep-alive 응답
+    if (request && request->keep_alive && status_code == 200) {
+        connection_header = "Connection: keep-alive";
+    }
+
+    response->status_code = status_code; // 응답 구조체에 상태 코드 저장
+
+    char header_buffer[512];
+    sprintf(header_buffer, 
+            "HTTP/1.1 %d %s\r\n"
+            "Content-Type: %s\r\n"
+            "Content-Length: %zu\r\n"
+            "%s\r\n" // Connection 헤더를 동적으로 삽입
+            "\r\n", 
+            status_code, status_message, content_type, content_length, connection_header);
+
+    response->header = strdup(header_buffer);
+}
+
+static char* get_file_content(const char* file_path, size_t* content_length) {
+    FILE* file = fopen(file_path, "rb");
+    if (file == NULL) {
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    *content_length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char* content = (char*)malloc(*content_length + 1);
+    if (content == NULL) {
+        fclose(file);
+        return NULL;
+    }
+
+    fread(content, 1, *content_length, file);
+    content[*content_length] = '\0';
+    fclose(file);
+    
+    return content;
+}
+
+// HTTP 302 리다이렉션 응답을 만드는 함수
+void build_redirect_response(HttpResponse* response, const char* location_url) {
+    char header_buffer[512];
+    
+    // 302 Found 헤더와 Location 헤더를 포함합니다.
+    int status_code = 302;
+    const char* status_message = "Found";
+    
+    response->status_code = status_code;
+    response->response_bytes = 0;       
+
+    // 응답 본문은 비어 있습니다.
+    sprintf(header_buffer, 
+            "HTTP/1.1 %d %s\r\n"
+            "Location: %s\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: close\r\n"
+            "\r\n", 
+            status_code, status_message, location_url);
+
+    // 전체 응답(헤더만)을 response->content에 저장
+    response->content = strdup(header_buffer);
+}
+
+void free_http_response(HttpResponse* response) {
+    if (response->content) {
+        free(response->content);
+        response->content = NULL;
+    }
+}
+
+void free_http_request(HttpRequest* request) {
+    if (request->method) free(request->method);
+    if (request->path) free(request->path);
+    if (request->version) free(request->version);
+    if (request->body) free(request->body);
+    if (request->headers) free(request->headers);
+}
+
+// HttpRequest* request 파라미터 추가 (헤더 선언과 일치시킴)
+void build_response_from_file(HttpRequest* request, HttpResponse* response, const char* file_path) {
+    char* file_content = NULL;
+    size_t content_length = 0;
+    int status_code = 200;
+    const char* content_type = "text/html";
+
+    // 403 페이지 요청 시 status_code를 403으로 설정
+    if (strstr(file_path, "403.html")) {
+        status_code = 403;
+    }
+
+    file_content = get_file_content(file_path, &content_length);
+
+    if (file_content == NULL) {
+        status_code = 404;
+        file_content = get_file_content("web/404.html", &content_length);
+        if (file_content == NULL) {
+            status_code = 500;
+            file_content = strdup("<h1>500 Internal Server Error</h1>");
+            content_length = strlen(file_content);
+        }
+    }
+
+    const char* ext = strrchr(file_path, '.');
+    if (ext) {
+        if (strcmp(ext, ".css") == 0) content_type = "text/css";
+        // 다른 파일 타입들...
+    }
+
+    // request를 build_response_header에 전달
+    build_response_header(request, response, content_type, content_length, status_code);
+
+    response->response_bytes = content_length; // 응답 본문 크기 저장
+
+    size_t total_length = strlen(response->header) + content_length;
+    response->content = (char*)malloc(total_length + 1);
+    if (response->content == NULL) {
+        log_error("Failed to allocate memory for response.");
+        free(response->header);
+        free(file_content);
+        return;
+    }
+    strcpy(response->content, response->header);
+    memcpy(response->content + strlen(response->header), file_content, content_length);
+    response->content[total_length] = '\0';
+
+    free(file_content);
+    free(response->header);
+}
