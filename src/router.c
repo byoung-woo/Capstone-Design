@@ -52,6 +52,7 @@ void get_static_file_path(const char* url_path, char* file_path, int file_path_s
     }
 }
 
+// 클라이언트 요청을 분석하여 보안 정책을 적용하고 적절한 핸들러로 연결하는 메인 라우팅 함수
 void handle_request_routing(HttpRequest* request, HttpResponse* response) {
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
