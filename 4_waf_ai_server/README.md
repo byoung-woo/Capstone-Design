@@ -34,21 +34,6 @@
 
 ## 🏗️ 시스템 아키텍처 (System Architecture)
 ![로고 파일](./images/Architecture.png)
-```plaintext
-[Client]  <-- (TLS 1.3) -->  [ 4_waf_ai_server (C) ]
-                                     |
-           +-------------------------+-------------------------+
-           |                         |                         |
-    [1. Rule Checker]         [2. DB Manager]          [3. Logger Thread]
-    (Check SQLi/XSS)          (SQLite3 Auth)           (Async SSL Send)
-           |                                                   |
-           v                                                   v
-    [Block or Pass]                                  [ AI Analysis Server (Python) ]
-                                                               |
-                                                       [ Anomaly Detection ]
-                                                               |
-                                                       [ Slack Notification ]
-```
 
 ---
 
