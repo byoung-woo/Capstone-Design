@@ -9,7 +9,7 @@
 #include <openssl/ssl.h> // SSL_CTX 사용을 위해 추가
 
 // --- 상수 및 매크로 ---
-#define SERVER_PORT 443
+#define SERVER_PORT 8443
 #define BUFFER_SIZE 4096
 #define LOG_FILE "webserver.log"
 #define CERT_FILE "certs/server.crt"

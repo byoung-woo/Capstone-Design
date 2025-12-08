@@ -153,6 +153,7 @@ cd 4_waf_ai_server
 make clean
 make
 ./webserver
+# 실행 후 브라우저에서 https://localhost:8443 또는 https://<RaspberryPi_IP>:8443 으로 접속
 ```
 
 ---
