@@ -21,7 +21,7 @@
 ai_engine/
 ├── ai_analyzer.py          # 메인 실행 파일 (AI 서버)
 ├── requirements.txt        # 필요 라이브러리 목록
-├── config_example.json     # 설정 파일 예시 (Slack Webhook)
+├── config.json     # 설정 파일 예시 (Slack Webhook)
 ├── README.md               # 설명서 (현재 파일)
 │
 ├── models/                 # 학습된 모델 및 전처리 객체
@@ -41,15 +41,13 @@ ai_engine/
 ### 1️⃣ Python 환경 설정 및 라이브러리 설치
 Python 3.8 이상 환경에서 다음 명령어를 실행하여 필수 패키지를 설치합니다.
 ```bash
-cd ai_engine
+cd ai_server
 pip install -r requirements.txt
 ```
 
 ### 2️⃣ 설정 파일 생성 (Slack 알림용)
-`config_example.json` 파일을 복사하여 `config.json`을 생성하고, 본인의 Slack Webhook URL을 입력합니다.
-```bash
-cp config_example.json config.json
-```
+ `config.json`파일에다가, 본인의 Slack Webhook URL을 입력합니다.
+
 
 `config.json` 편집:
 ```json
@@ -108,9 +106,3 @@ python ai_analyzer.py
 **A.** AI 서버(`ai_analyzer.py`)가 실행 중인지 확인하세요.  
 C 웹 서버는 로그 전송 실패 시 에러를 기록하지만 동작은 중단되지 않습니다.
 
----
-
-## 💡 팁
-이 파일을 `ai_engine` 폴더에 넣어두면, 프로젝트를 보는 사람(또는 심사위원)이  
-**"이 폴더는 어떤 역할을 하고, 어떻게 실행하는지"** 명확하게 이해할 수 있어  
-프로젝트의 완성도와 전문성이 크게 향상됩니다.

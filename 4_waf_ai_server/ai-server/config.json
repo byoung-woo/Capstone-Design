@@ -1,5 +1,4 @@
 
 {
-  "_comment": "이 필드는 주석입니다. 슬랙의 웹주소를 여기에 입력하고 해당 문구를 삭제하세요",
   "SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/your/webhook/url"
 }
