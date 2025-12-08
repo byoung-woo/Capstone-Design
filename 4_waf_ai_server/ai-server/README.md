@@ -46,8 +46,10 @@ pip install -r requirements.txt
 ```
 
 ### 2️⃣ 설정 파일 생성 (Slack 알림용)
- `config.json`파일에다가, 본인의 Slack Webhook URL을 입력합니다.
-
+`config_example.json` 파일을 복사하여 `config.json`을 생성하고, 본인의 Slack Webhook URL을 입력합니다.
+```bash
+cp config_example.json config.json
+```
 
 `config.json` 편집:
 ```json
@@ -105,4 +107,3 @@ python ai_analyzer.py
 **Q.** `ConnectionRefusedError`가 발생합니다.  
 **A.** AI 서버(`ai_analyzer.py`)가 실행 중인지 확인하세요.  
 C 웹 서버는 로그 전송 실패 시 에러를 기록하지만 동작은 중단되지 않습니다.
-
