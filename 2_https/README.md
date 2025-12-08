@@ -2,7 +2,7 @@
 
 ## 📌 프로젝트 개요
 이 모듈은 1_http의 평문 통신 서버에 OpenSSL 라이브러리를 이식하여, 산업 표준 보안 프로토콜인 TLS(Transport Layer Security) 1.2/1.3을 지원하도록 업그레이드한 버전입니다.  
-IoT 및 임베디드 장비에서 필수적인 **데이터 기밀성(Confidentiality)**과 **무결성(Integrity)**을 보장하기 위해, 단순한 라이브러리 호출을 넘어 Cipher Suite 최적화와 보안 정책 강화를 직접 구현했습니다.
+IoT 및 임베디드 장비에서 필수적인 데이터 기밀성(Confidentiality)과 무결성(Integrity)을 보장하기 위해, 단순한 라이브러리 호출을 넘어 Cipher Suite 최적화와 보안 정책 강화를 직접 구현했습니다.
 
 ---
 
