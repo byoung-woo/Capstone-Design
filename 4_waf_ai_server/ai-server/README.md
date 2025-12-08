@@ -30,9 +30,6 @@ ai_engine/
 │   ├── hasher_final.joblib
 │   └── feature_columns_final.joblib
 │
-├── notebooks/              # 모델 학습용 Jupyter Notebook
-│   └── autoencoder_training.ipynb
-│
 └── templates/              # Slack 알림 메시지 템플릿
     └── ai_alert.json
 ```
