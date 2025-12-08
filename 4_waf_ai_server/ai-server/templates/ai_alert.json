@@ -1,0 +1,37 @@
+{
+  "attachments": [
+    {
+      "color": "($color)",
+      "blocks": [
+        {
+          "type": "header",
+          "text": { "type": "plain_text", "text": "🤖 2차 방어 시스템 탐지 (AI-WAF)" }
+        },
+        {
+          "type": "section",
+          "fields": [
+            { "type": "mrkdwn", "text": "*Source IP:*\n`($ip)`" },
+            { "type": "mrkdwn", "text": "*Request Path:*\n`($path)`" },
+            { "type": "mrkdwn", "text": "*Attack Type:*\n`($attack_type)`" },
+            { "type": "mrkdwn", "text": "*Detected Pattern:*\n`($detected_pattern)`" },
+            { "type": "mrkdwn", "text": "*Detected In:*\n`($detected_in)`" },
+            { "type": "mrkdwn", "text": "*Risk Level:*\n`($risk_level)`" },
+            { "type": "mrkdwn", "text": "*Risk Score:*\n`($risk_score)`" },
+            { "type": "mrkdwn", "text": "*Action Taken:*\n`($action_taken)`" }
+          ]
+        },
+        { "type": "divider" },
+        {
+          "type": "section",
+          "text": { "type": "mrkdwn", "text": "*Recommendation:*\n($recommendation)" }
+        },
+        {
+          "type": "context",
+          "elements": [
+            { "type": "mrkdwn", "text": "ts=($timestamp) • server=ai-analyzer" }
+          ]
+        }
+      ]
+    }
+  ]
+}

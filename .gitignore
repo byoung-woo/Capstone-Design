@@ -42,3 +42,9 @@ ip_blacklist.txt
 2_https/client
 3_raspberry/webserver
 
+# Python 관련 무시
+__pycache__/
+*.py[cod]
+.venv
+venv/
+.ipynb_checkpoints/
