@@ -45,7 +45,7 @@ tail -fn0 "$LOG_FILE" | while read -r line ; do
     RECOMMENDATION="해당 IP의 추가적인 로그를 확인하고, 공격이 지속될 경우 방화벽에서 IP를 차단하는 것을 고려하세요."
 
     # jq를 사용하여 JSON 페이로드를 생성
-    # jq에 rule_name과 pattern 변수를 전달 (기존 detect_rule 제거)
+    # JSON 페이로드 생성
     JSON_PAYLOAD=$(jq -n \
       --arg ip "$CLIENT_IP" \
       --arg path "$REQUEST_PATH" \

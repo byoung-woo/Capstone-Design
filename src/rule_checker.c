@@ -107,7 +107,7 @@ void cleanup_rules() {
 }
 
 
-// --- 3. 기존 함수 수정 ---
+// --- 공격 탐지 로직 ---
 
 // 문자열을 소문자로 변환하는 헬퍼 함수 (기존과 동일)
 static char* to_lower_string(const char* str) {
