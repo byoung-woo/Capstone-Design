@@ -44,7 +44,6 @@ ip_blacklist.txt
 
 # Python 관련 무시
 __pycache__/
-*.py[cod]
 .venv
 venv/
 .ipynb_checkpoints/
