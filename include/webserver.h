@@ -1,4 +1,4 @@
-// webserver.h
+// include/webserver.h
 #ifndef WEBSERVER_H
 #define WEBSERVER_H
 
@@ -39,7 +39,6 @@ typedef struct {
 typedef struct {
     char* header;
     char* content;
-    // [추가] src/response_builder.c에서 사용하므로 멤버 추가
     int status_code;
     long response_bytes;
 } HttpResponse;
@@ -47,8 +46,7 @@ typedef struct {
 // --- 함수 선언 ---
 void init_logger();
 void log_error(const char* message);
-// [수정] AI 모델 호환을 위해 logger.h와 선언 일치 (파라미터 1개)
-void log_request(HttpRequest* request); 
+void log_request(HttpRequest* request); // AI 모델 호환을 위해 logger.h와 선언 일치 (파라미터 1개)
 void cleanup_logger();
 
 void init_log_queue();

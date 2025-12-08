@@ -10,7 +10,7 @@
 #include "rule_checker.h"
 #include "logger.h"
 
-// --- 1. [수정] 동적 룰 관리를 위한 구조체 및 전역 변수 ---
+// --- 1. 동적 룰 관리를 위한 구조체 및 전역 변수 ---
 
 typedef struct {
     char* rule_name;    // "SQL Injection", "XSS" 등
@@ -18,12 +18,12 @@ typedef struct {
     int num_patterns; // 패턴의 개수
 } RuleGroup;
 
-// [수정] 모든 룰 그룹을 담는 동적 배열
+// 모든 룰 그룹을 담는 동적 배열
 static RuleGroup* rule_groups = NULL;
 static int num_rule_groups = 0;
 
 
-// --- 2. [추가] JSON 파일 로딩 및 메모리 해제 함수 ---
+// --- 2. JSON 파일 로딩 및 메모리 해제 함수 ---
 
 // 파일 내용을 읽어오는 헬퍼 함수
 static char* read_file_content(const char* filepath) {
@@ -120,7 +120,7 @@ static char* to_lower_string(const char* str) {
     return lower_str;
 }
 
-// [수정] 동적으로 로드된 룰을 사용하여 공격을 탐지하는 함수
+// 동적으로 로드된 룰을 사용하여 공격을 탐지하는 함수
 int is_attack_detected(HttpRequest* request) {
     if (!rule_groups) return 0; // 룰이 로드되지 않았으면 검사하지 않음
 

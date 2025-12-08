@@ -1,3 +1,4 @@
+// src/db_manager.h
 #include <stdio.h>
 #include <sqlite3.h>
 #include "db_manager.h"
@@ -8,15 +9,11 @@
 
 #define SALT_LEN 16
 #define HASH_LEN 64
-#define PBKDF2_ITERATIONS 100000 // [수정] 4096 -> 100000으로 증가. 해싱 강도 강화.
+#define PBKDF2_ITERATIONS 100000
 
 // 데이터베이스 핸들러
 static sqlite3 *db;
 
-static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
-    // 이 예제에서는 사용하지 않음
-    return 0;
-}
 
 // 데이터베이스 초기화 및 테이블 생성
 void init_database() {
@@ -38,7 +35,7 @@ void init_database() {
                       "role TEXT NOT NULL DEFAULT 'user');";
     
     char *err_msg = 0;
-    rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
+    rc = sqlite3_exec(db, sql, NULL, 0, &err_msg);
     
     if (rc != SQLITE_OK) {
         log_error("SQL error on table creation.");
@@ -71,7 +68,7 @@ int authenticate_user(const char* username, const char* password) {
         unsigned char new_hash[HASH_LEN];
         // PBKDF2_HMAC_SHA256을 사용하여 입력된 비밀번호를 해싱
         PKCS5_PBKDF2_HMAC(password, strlen(password),
-                          salt_hex, strlen((char*)salt_hex), PBKDF2_ITERATIONS, EVP_sha256(), // [수정] PBKDF2_ITERATIONS 사용
+                          salt_hex, strlen((char*)salt_hex), PBKDF2_ITERATIONS, EVP_sha256(), // PBKDF2_ITERATIONS 사용
                           HASH_LEN, new_hash);
         
         // 생성된 해시를 16진수 문자열로 변환하여 비교
@@ -108,7 +105,7 @@ int insert_user(const char* username, const char* password) {
     // 2. 비밀번호 해싱
     unsigned char hash[HASH_LEN];
     if (!PKCS5_PBKDF2_HMAC(password, strlen(password), 
-                           (unsigned char*)salt_hex, strlen(salt_hex), PBKDF2_ITERATIONS, EVP_sha256(), // [수정] PBKDF2_ITERATIONS 사용
+                           (unsigned char*)salt_hex, strlen(salt_hex), PBKDF2_ITERATIONS, EVP_sha256(), // PBKDF2_ITERATIONS 사용
                            HASH_LEN, hash)) {
         log_error("Failed to hash password.");
         return 0;
@@ -137,7 +134,7 @@ int insert_user(const char* username, const char* password) {
     sqlite3_finalize(stmt);
     return 1;
 }
-// 데이터베이스 연결을 닫고 자원을 정리하는 함수
+
 // 데이터베이스 연결을 닫고 자원을 정리하는 함수
 void cleanup_database() {
     if (db) {

@@ -8,7 +8,7 @@
 #include "logger.h"
 #include "router.h"
 
-// [수정] HttpRequest* request 파라미터 추가
+
 static void build_response_header(HttpRequest* request, HttpResponse* response, const char* content_type, size_t content_length, int status_code) {
     char status_message[64];
     
@@ -16,7 +16,7 @@ static void build_response_header(HttpRequest* request, HttpResponse* response, 
         strcpy(status_message, "OK");
     } else if (status_code == 404) {
         strcpy(status_message, "Not Found");
-    } else if (status_code == 403) { // 403 상태 코드 메시지 추가
+    } else if (status_code == 403) { 
         strcpy(status_message, "Forbidden");
     } else if (status_code == 302) {
         strcpy(status_message, "Found");
@@ -25,12 +25,12 @@ static void build_response_header(HttpRequest* request, HttpResponse* response, 
     }
 
     const char* connection_header = "Connection: close";
-    // [Keep-Alive 로직 적용] 요청이 keep_alive를 원하고 (1) 상태 코드가 200인 경우에만 keep-alive 응답
+    //  요청이 keep_alive를 원하고 (1) 상태 코드가 200인 경우에만 keep-alive 응답
     if (request && request->keep_alive && status_code == 200) {
         connection_header = "Connection: keep-alive";
     }
 
-    response->status_code = status_code; // [추가] 응답 구조체에 상태 코드 저장
+    response->status_code = status_code; // 응답 구조체에 상태 코드 저장
 
     char header_buffer[512];
     sprintf(header_buffer, 
@@ -67,7 +67,7 @@ static char* get_file_content(const char* file_path, size_t* content_length) {
     return content;
 }
 
-// [추가] HTTP 302 리다이렉션 응답을 만드는 함수
+// HTTP 302 리다이렉션 응답을 만드는 함수
 void build_redirect_response(HttpResponse* response, const char* location_url) {
     char header_buffer[512];
     
@@ -75,8 +75,8 @@ void build_redirect_response(HttpResponse* response, const char* location_url) {
     int status_code = 302;
     const char* status_message = "Found";
     
-    response->status_code = status_code; // [추가]
-    response->response_bytes = 0;        // [추가]
+    response->status_code = status_code;
+    response->response_bytes = 0;       
 
     // 응답 본문은 비어 있습니다.
     sprintf(header_buffer, 
@@ -106,7 +106,7 @@ void free_http_request(HttpRequest* request) {
     if (request->headers) free(request->headers);
 }
 
-// [수정] HttpRequest* request 파라미터 추가 (헤더 선언과 일치시킴)
+// HttpRequest* request 파라미터 추가 (헤더 선언과 일치시킴)
 void build_response_from_file(HttpRequest* request, HttpResponse* response, const char* file_path) {
     char* file_content = NULL;
     size_t content_length = 0;
@@ -136,10 +136,10 @@ void build_response_from_file(HttpRequest* request, HttpResponse* response, cons
         // 다른 파일 타입들...
     }
 
-    // [수정] request를 build_response_header에 전달
+    // request를 build_response_header에 전달
     build_response_header(request, response, content_type, content_length, status_code);
 
-    response->response_bytes = content_length; // [추가] 응답 본문 크기 저장
+    response->response_bytes = content_length; // 응답 본문 크기 저장
 
     size_t total_length = strlen(response->header) + content_length;
     response->content = (char*)malloc(total_length + 1);

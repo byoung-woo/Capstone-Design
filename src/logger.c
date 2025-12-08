@@ -1,6 +1,7 @@
-#define _GNU_SOURCE // [추가] strcasestr 함수 사용을 위해
-// src/logger.c (TLS/SSL 암호화 적용 및 비동기 로깅)
-// [수정] AI 모델이 요구하는 HTTP 컨텐츠 기반 로깅으로 변경
+// src/logger.c
+#define _GNU_SOURCE // strcasestr 함수 사용을 위해 필요
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,8 +10,7 @@
 #include <sys/socket.h>
 #include <cjson/cJSON.h>
 #include <unistd.h>
-#include <pthread.h> // [추가] 스레드 및 동기화
-// OpenSSL 헤더 추가
+#include <pthread.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
@@ -19,7 +19,7 @@
 
 #define ANALYZER_IP "172.20.10.2" // AI 분석 서버 IP 주소
 #define ANALYZER_PORT 5140
-#define LOG_QUEUE_SIZE 100 // [추가] 로그 큐 최대 크기
+#define LOG_QUEUE_SIZE 100 // 로그 큐 최대 크기
 
 // --- 로그 큐 관련 전역 변수 ---
 static char* log_queue[LOG_QUEUE_SIZE]; // 로그 메시지를 저장할 큐 (NULL로 초기화)
@@ -48,7 +48,7 @@ static void push_log_to_queue(char* json_log_with_newline) {
         log_queue[log_queue_tail] = json_log_with_newline; // 메모리 소유권 이전
         log_queue_tail = (log_queue_tail + 1) % LOG_QUEUE_SIZE;
         log_queue_count++;
-        pthread_cond_signal(&log_queue_cond); // [추가] 대기 중인 log_sender_thread에 알림
+        pthread_cond_signal(&log_queue_cond); // 대기 중인 log_sender_thread에 알림
     } else {
         log_error("Log queue is full. Dropping log message.");
         free(json_log_with_newline); // 버려진 로그는 해제
@@ -160,7 +160,7 @@ static void send_log_over_ssl(const char* log_with_newline) {
 }
 
 
-// [추가] 로그 전송 전용 스레드 함수
+// 로그 전송 전용 스레드 함수
 void* log_sender_thread(void* arg) {
     char* json_log = NULL;
 
@@ -180,13 +180,13 @@ void* log_sender_thread(void* arg) {
     return NULL;
 }
 
-// --- [신규] AI 모델 호환을 위한 헬퍼 함수 ---
+// ---  AI 모델 호환을 위한 헬퍼 함수 ---
 
 /**
  * @brief raw_buffer에서 User-Agent 헤더 값을 찾아 반환합니다.
  * @param raw_request 전체 HTTP 요청 원본 버퍼
  * @return User-Agent 문자열 (동적 할당됨, 사용 후 free 필요) 또는 "N/A" (실패 시).
- * [수정] User-Agent를 찾지 못하면 "N/A" 대신 NULL을 반환하여 JSON에 추가되지 않도록 함.
+ * User-Agent를 찾지 못하면 "N/A" 대신 NULL을 반환하여 JSON에 추가되지 않도록 함.
  */
 static char* get_user_agent_from_raw(const char* raw_request) {
     if (!raw_request) return NULL;
@@ -218,7 +218,7 @@ static char* get_user_agent_from_raw(const char* raw_request) {
 }
 
 
-// --- [수정] AI 모델이 요구하는 HTTP 컨텐츠 기반 로깅 함수 ---
+// --- AI 모델이 요구하는 HTTP 컨텐츠 기반 로깅 함수 ---
 void log_request(HttpRequest* request) {
     time_t now = time(NULL);
     struct tm* t = localtime(&now);
@@ -230,7 +230,7 @@ void log_request(HttpRequest* request) {
     getpeername(request->client_socket, (struct sockaddr*)&addr, &addr_len);
     char* client_ip = inet_ntoa(addr.sin_addr);
 
-    // [수정] AI 모델이 학습한 '컨텐츠' 기반 특성을 JSON에 추가
+    // AI 모델이 학습한 '컨텐츠' 기반 특성을 JSON에 추가
     cJSON* log_json = cJSON_CreateObject();
     
     // (참고) timestamp와 client_ip는 모델 학습에는 사용되지 않았지만,
@@ -277,21 +277,6 @@ void log_request(HttpRequest* request) {
     } else {
         cJSON_AddStringToObject(log_json, "user_agent", "N/A"); // 찾지 못한 경우
     }
-
-    // --- [삭제] 기존 네트워크 통계 정보 (AI 모델이 학습하지 않음) ---
-    /*
-    cJSON_AddNumberToObject(log_json, "flow duration", request->flow_duration);
-    cJSON_AddNumberToObject(log_json, "total fwd packets", request->fwd_packets);
-    cJSON_AddNumberToObject(log_json, "total backward packets", request->bwd_packets);
-    cJSON_AddNumberToObject(log_json, "total length of fwd packets", request->fwd_bytes);
-    cJSON_AddNumberToObject(log_json, "total length of bwd packets", request->bwd_bytes);
-    
-    double duration_sec = (request->flow_duration / 1000000.0) + 1e-6;
-    cJSON_AddNumberToObject(log_json, "flow bytes/s", (request->fwd_bytes + request->bwd_bytes) / duration_sec);
-    cJSON_AddNumberToObject(log_json, "flow packets/s", (request->fwd_packets + request->bwd_packets) / duration_sec);
-    cJSON_AddNumberToObject(log_json, "packets per second", (request->fwd_packets + request->bwd_packets) / duration_sec);
-    */
-    // --- [삭제 완료] ---
 
     char* json_string = cJSON_PrintUnformatted(log_json);
     if (json_string) {

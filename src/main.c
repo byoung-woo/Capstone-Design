@@ -1,4 +1,4 @@
-// main.c
+// src/main.c
 // 임베디드 HTTPS 웹서버의 메인 파일.
 // 서버 초기화, 클라이언트 연결 수락 및 요청 처리를 담당합니다.
 
@@ -113,7 +113,7 @@ void parse_http_request(const char* buffer, HttpRequest* request) {
     }
 
     request->headers = NULL;
-    request->keep_alive = 0; // [추가] 기본값 설정
+    request->keep_alive = 0;
 
     // Connection 헤더 파싱 (Keep-Alive 확인)
     if (strstr(buffer, "Connection: keep-alive") || strstr(buffer, "Connection: Keep-Alive")) {
@@ -197,7 +197,7 @@ void* handle_client(void* arg) {
             request.flow_duration = 1; 
         }
         
-        // [수정] AI 모델 호환을 위해 인수를 1개만 받도록 수정
+        // AI 모델 호환을 위해 인수를 1개만 받도록 수정
         log_request(&request); 
 
         // 메모리 해제
@@ -227,7 +227,7 @@ int main() {
     // 로거 모듈 초기화 (파일 열기)
     init_logger();
 
-    // [성능 개선] 로그 큐 초기화 및 로그 전송 스레드 시작
+    // 로그 큐 초기화 및 로그 전송 스레드 시작
     init_log_queue();
     pthread_t log_thread_id;
     if (pthread_create(&log_thread_id, NULL, log_sender_thread, NULL) != 0) {
@@ -238,11 +238,11 @@ int main() {
 
     init_database();
 
-    // [추가] WAF 룰셋 파일 로드
+    // WAF 룰셋 파일 로드
     load_rules_from_file("rules.json");
     init_ip_manager();
 
-        // [추가] IP 리스트 파일 감시 스레드 시작
+        // IP 리스트 파일 감시 스레드 시작
     pthread_t ip_monitor_thread_id;
     if (pthread_create(&ip_monitor_thread_id, NULL, ip_list_monitor_thread, NULL) != 0) {
         log_error("IP list monitor thread creation failed");

@@ -15,6 +15,7 @@
 #include "rule_checker.h"
 #include "ip_manager.h"
 
+// 과도한 요청 발생 시 429(Too Many Requests) 응답 메시지를 생성하는 함수
 void build_too_many_requests_response(HttpResponse* response) {
     const char* body = "<h1>429 Too Many Requests</h1><p>Your IP has been temporarily blocked due to excessive requests.</p>";
     size_t body_len = strlen(body);
@@ -30,6 +31,7 @@ void build_too_many_requests_response(HttpResponse* response) {
     strcat(response->content, body);
 }
 
+// 클라이언트가 요청한 URL 경로를 서버의 정적 파일 경로로 변환하는 함수
 void get_static_file_path(const char* url_path, char* file_path, int file_path_size) {
     char temp_path[BUFFER_SIZE];
     strncpy(temp_path, url_path, BUFFER_SIZE - 1);

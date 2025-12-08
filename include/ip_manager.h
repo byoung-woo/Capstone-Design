@@ -3,7 +3,7 @@
 #define IP_MANAGER_H
 
 #include "webserver.h"
-#include <pthread.h> // pthread 사용을 위해 추가
+#include <pthread.h>
 
 // --- 정책 설정 ---
 #define IP_TABLE_SIZE 1024

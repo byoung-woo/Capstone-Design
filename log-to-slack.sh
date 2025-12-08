@@ -10,8 +10,7 @@ if [ -z "$WEBHOOK_URL" ]; then
 fi
 
 # 감시할 로그 파일
-# LOG_FILE="/home/user/web-server1/webserver.log"
-LOG_FILE="/home/user/web-server1/webserver_attack.log"
+LOG_FILE="./webserver_attack.log"
 
 # 사용할 알림 템플릿 파일 경로
 TEMPLATE_FILE="./templates/waf_alert.json"
@@ -29,7 +28,7 @@ tail -fn0 "$LOG_FILE" | while read -r line ; do
     CLIENT_IP=$(echo "$line" | sed -n 's/.*client_ip="\([^"]*\)".*/\1/p')
     REQUEST_PATH=$(echo "$line" | sed -n 's/.*request_path="\([^"]*\)".*/\1/p')
     
-    # [개선 1] 공격 유형(attack_type)과 실제 패턴(rule)을 분리하여 파싱
+    # 공격 유형(attack_type)과 실제 패턴(rule)을 분리하여 파싱
     # C 코드(rule_checker.c)가 "attack_type="과 "rule="을 로그에 남기는 것을 활용
     DETECTED_RULE_NAME=$(echo "$line" | sed -n 's/.*attack_type="\([^"]*\)".*/\1/p')
     DETECTED_PATTERN=$(echo "$line" | sed -n 's/.*rule="\([^"]*\)".*/\1/p')
@@ -40,13 +39,13 @@ tail -fn0 "$LOG_FILE" | while read -r line ; do
     # Slack 메시지에 포함될 정적 텍스트
     RISK_LEVEL="🔴 High"
     
-    # [개선 2] 실제 조치 사항(IP 임시 차단)을 명시
+    # 실제 조치 사항(IP 임시 차단)을 명시
     # C 코드(router.c)가 block_ip_dynamically를 호출하는 것을 반영
     ACTION_TAKEN="🛡️ Request Blocked (403) + IP 60초 임시 차단 (Graylist)"
     RECOMMENDATION="해당 IP의 추가적인 로그를 확인하고, 공격이 지속될 경우 방화벽에서 IP를 차단하는 것을 고려하세요."
 
     # jq를 사용하여 JSON 페이로드를 생성
-    # [개선 1 적용] jq에 rule_name과 pattern 변수를 전달 (기존 detect_rule 제거)
+    # jq에 rule_name과 pattern 변수를 전달 (기존 detect_rule 제거)
     JSON_PAYLOAD=$(jq -n \
       --arg ip "$CLIENT_IP" \
       --arg path "$REQUEST_PATH" \

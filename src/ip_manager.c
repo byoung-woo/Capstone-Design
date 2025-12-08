@@ -5,10 +5,10 @@
 #include <time.h>
 #include <pthread.h>
 #include <arpa/inet.h>
-#include <sys/stat.h> // [수정] stat 함수를 위해 추가
-#include <unistd.h>   // [수정] sleep 함수를 위해 추가
+#include <sys/stat.h> 
+#include <unistd.h>  
 
-#include "ip_manager.h" // [수정] ""를 사용하여 로컬 헤더 파일을 포함합니다.
+#include "ip_manager.h" 
 #include "logger.h"
 
 // --- 자료구조 정의 ---
@@ -22,7 +22,7 @@ typedef struct DynamicIPNode {
     struct DynamicIPNode* next;
 } DynamicIPNode;
 
-// 화이트리스트/블랙리스트용 노드 (간단한 구조)
+// 화이트리스트/블랙리스트용 노드
 typedef struct StaticIPNode {
     char ip[INET_ADDRSTRLEN];
     struct StaticIPNode* next;
@@ -59,7 +59,7 @@ static void cleanup_static_list(StaticIPNode* table[]) {
             current = current->next;
             free(temp);
         }
-        table[i] = NULL; // [개선] 포인터를 NULL로 초기화
+        table[i] = NULL;
     }
 }
 
@@ -93,9 +93,9 @@ static void load_ip_list_from_file(const char* filepath, StaticIPNode* table[], 
     *last_mod_time = file_stat.st_mtime;
 }
 
-// ... (init_ip_manager, cleanup_ip_manager, check_ip_status 등 나머지 함수는 이전 제안과 동일하게 유지) ...
 
-// --- ip_manager.c의 나머지 함수들 (이전 제안과 동일) ---
+
+// 동적 차단 리스트의 메모리를 해제하는 함수
 
 static void cleanup_dynamic_list() {
     for (int i = 0; i < IP_TABLE_SIZE; i++) {
@@ -107,6 +107,11 @@ static void cleanup_dynamic_list() {
         }
     }
 }
+
+/**
+ * @brief IP 관리 모듈을 초기화합니다.
+ * @details 해시 테이블 초기화, 뮤텍스 생성, 초기 화이트리스트/블랙리스트 로드를 수행합니다.
+ */
 
 void init_ip_manager() {
     for (int i = 0; i < IP_TABLE_SIZE; i++) {
@@ -120,6 +125,10 @@ void init_ip_manager() {
     log_error("IP manager initialized with initial lists.");
 }
 
+/**
+ * @brief IP 관리 모듈 사용을 종료하고 자원을 해제합니다.
+ */
+
 void cleanup_ip_manager() {
     keep_running = 0;
     cleanup_static_list(whitelist_table);
@@ -129,11 +138,23 @@ void cleanup_ip_manager() {
     log_error("IP manager cleaned up.");
 }
 
+/**
+ * @brief 특정 IP의 보안 상태(차단 여부 등)를 확인합니다.
+ * @details 
+ * 1. 화이트리스트 확인 (통과)
+ * 2. 블랙리스트 확인 (영구 차단)
+ * 3. 동적 차단(Graylist) 확인 및 Rate Limiting 로직 적용
+ * - 짧은 시간(TIME_WINDOW) 동안 과도한 요청(REQUEST_LIMIT) 발생 시 임시 차단
+ * * @param ip_str 확인할 클라이언트 IP 주소
+ * @return IPStatus (ALLOWED, WHITELISTED, BLACKLISTED, DYNAMICALLY_BLOCKED 등)
+ */
+
 IPStatus check_ip_status(const char* ip_str) {
-    pthread_mutex_lock(&ip_manager_mutex);
+    pthread_mutex_lock(&ip_manager_mutex); // 스레드 안전성 보장
     unsigned int index = hash_ip(ip_str);
     time_t now = time(NULL);
     
+    // 1. 화이트리스트 검사
     StaticIPNode* wl_node = whitelist_table[index];
     while(wl_node) {
         if (strcmp(wl_node->ip, ip_str) == 0) {
@@ -143,6 +164,7 @@ IPStatus check_ip_status(const char* ip_str) {
         wl_node = wl_node->next;
     }
 
+    // 2. 블랙리스트 검사
     StaticIPNode* bl_node = blacklist_table[index];
     while(bl_node) {
         if (strcmp(bl_node->ip, ip_str) == 0) {
@@ -152,12 +174,14 @@ IPStatus check_ip_status(const char* ip_str) {
         bl_node = bl_node->next;
     }
 
+    // 3. 동적 차단 및 Rate Limiting 검사
     DynamicIPNode* dyn_node = dynamic_block_table[index];
     while (dyn_node != NULL && strcmp(dyn_node->ip, ip_str) != 0) {
         dyn_node = dyn_node->next;
     }
 
     if (dyn_node == NULL) {
+        // 새로운 접속 IP인 경우 노드 생성
         dyn_node = (DynamicIPNode*)malloc(sizeof(DynamicIPNode));
         strncpy(dyn_node->ip, ip_str, INET_ADDRSTRLEN);
         dyn_node->request_count = 1;
@@ -166,16 +190,23 @@ IPStatus check_ip_status(const char* ip_str) {
         dyn_node->next = dynamic_block_table[index];
         dynamic_block_table[index] = dyn_node;
     } else {
+        // 기존 접속 IP인 경우
+
+        // 이미 차단된 상태인지 확인
         if (dyn_node->blocked_until > now) {
             pthread_mutex_unlock(&ip_manager_mutex);
             return IP_DYNAMICALLY_BLOCKED;
         }
+
+        // 시간 윈도우가 지났으면 카운트 초기화
         if (now - dyn_node->first_request_time > TIME_WINDOW_SECONDS) {
             dyn_node->request_count = 1;
             dyn_node->first_request_time = now;
         } else {
             dyn_node->request_count++;
         }
+
+        // 요청 제한 초과 시 차단 설정
         if (dyn_node->request_count > REQUEST_LIMIT) {
             dyn_node->blocked_until = now + BLOCK_DURATION_SECONDS;
             pthread_mutex_unlock(&ip_manager_mutex);
@@ -187,19 +218,32 @@ IPStatus check_ip_status(const char* ip_str) {
     return IP_ALLOWED;
 }
 
+/**
+ * @brief WAF 등 외부 요인에 의해 IP를 즉시 동적으로 차단합니다.
+ * @param ip_str 차단할 IP 주소
+ */
 void block_ip_dynamically(const char* ip_str) {
     pthread_mutex_lock(&ip_manager_mutex);
     unsigned int index = hash_ip(ip_str);
     DynamicIPNode* node = dynamic_block_table[index];
     time_t now = time(NULL);
+
+    // 해당 IP 노드 찾기
     while (node != NULL && strcmp(node->ip, ip_str) != 0) {
         node = node->next;
     }
+
+    // 노드가 있으면 차단 시간 설정 (노드가 없으면 무시하거나 새로 생성할 수 있음)
     if (node != NULL) {
         node->blocked_until = now + BLOCK_DURATION_SECONDS;
     }
     pthread_mutex_unlock(&ip_manager_mutex);
 }
+
+/**
+ * @brief 관리자에 의해 특정 IP의 차단을 즉시 해제합니다.
+ * @param ip_str 차단 해제할 IP 주소
+ */
 
 void unblock_ip(const char* ip_str) {
     pthread_mutex_lock(&ip_manager_mutex);
@@ -218,10 +262,19 @@ void unblock_ip(const char* ip_str) {
     pthread_mutex_unlock(&ip_manager_mutex);
 }
 
+
+/**
+ * @brief 설정 파일(Whitelist/Blacklist) 변경을 감시하는 백그라운드 스레드 함수
+ * @details 주기적으로 파일의 수정 시간(mtime)을 확인하여 변경 시 리스트를 리로드합니다.
+ * @param arg 스레드 인자 (사용하지 않음)
+ */
 void* ip_list_monitor_thread(void* arg) {
     while (keep_running) {
-        sleep(FILE_CHECK_INTERVAL_SECONDS);
+        sleep(FILE_CHECK_INTERVAL_SECONDS); // 주기적 대기
+        
         struct stat file_stat;
+        
+        // Whitelist 파일 감시
         if (stat("ip_whitelist.txt", &file_stat) == 0) {
             if (file_stat.st_mtime != whitelist_last_mod_time) {
                 log_error("Whitelist file has changed. Reloading...");
@@ -231,6 +284,7 @@ void* ip_list_monitor_thread(void* arg) {
                 log_error("Whitelist reloaded.");
             }
         }
+        // Blacklist 파일 감시
         if (stat("ip_blacklist.txt", &file_stat) == 0) {
             if (file_stat.st_mtime != blacklist_last_mod_time) {
                 log_error("Blacklist file has changed. Reloading...");
