@@ -20,7 +20,7 @@
   라즈베리파이 환경에 맞춰 멀티스레딩(`pthread`)과 JSON 로깅을 적용한 최적화 버전 (Port 8443)
 
 - **`4_waf_ai_server/` (🔥 Final Version)**  
-  WAF, DB 연동, AI 로그 전송, Slack 알림 등 모든 기능이 통합된 최종 결과물 (Port 8443
+  WAF, DB 연동, AI 로그 전송, Slack 알림 등 모든 기능이 통합된 최종 결과물 (Port 8443)
 
 ---
 
