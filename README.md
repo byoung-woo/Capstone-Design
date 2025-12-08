@@ -11,16 +11,16 @@
 이 저장소는 프로젝트의 개발 단계를 따라 4개의 메인 디렉토리로 구성되어 있습니다.
 
 - **`1_http/`**  
-  기본적인 HTTP/1.1 프로토콜을 구현한 단일 스레드 기반 웹 서버
+  기본적인 HTTP/1.1 프로토콜을 구현한 단일 스레드 기반 웹 서버 (Port 8080)
 
 - **`2_https/`**  
-  OpenSSL 라이브러리를 적용하여 TLS 1.2/1.3 암호화 통신을 지원하는 HTTPS 서버
+  OpenSSL 라이브러리를 적용하여 TLS 1.2/1.3 암호화 통신을 지원하는 HTTPS 서버 (Port 8443)
 
 - **`3_raspberry/`**  
-  라즈베리파이 환경에 맞춰 멀티스레딩(`pthread`)과 JSON 로깅을 적용한 최적화 버전
+  라즈베리파이 환경에 맞춰 멀티스레딩(`pthread`)과 JSON 로깅을 적용한 최적화 버전 (Port 8443)
 
 - **`4_waf_ai_server/` (🔥 Final Version)**  
-  WAF, DB 연동, AI 로그 전송, Slack 알림 등 모든 기능이 통합된 최종 결과물
+  WAF, DB 연동, AI 로그 전송, Slack 알림 등 모든 기능이 통합된 최종 결과물 (Port 8443
 
 ---
 
@@ -63,7 +63,7 @@
   - 예: 요청 메서드, URL, IP, User-Agent, WAF 탐지 결과 등
 
 - **AI 서버 연동 (`logger.c`)**
-  - 별도의 스레드를 통해 AI 분석 서버(`172.20.10.2:5140`)로 로그를 **비동기 SSL 전송**
+  - 별도의 스레드를 통해 지정된 AI 분석 서버(소스 내 설정)로 로그를 **비동기 SSL 전송**
   - 웹 서버 성능에 영향을 최소화하면서 실시간 위협 분석 수행
 
 - **Slack 실시간 알림**
@@ -78,8 +78,8 @@
   - 경량 데이터베이스(SQLite3)를 내장하여 회원/세션 정보를 관리
   - 웹 서버와 동일 호스트에서 파일 기반으로 운영
 
-- **보안 로그인**
-  - 비밀번호 저장 시 **PBKDF2-HMAC-SHA256 + Salt** 적용
+- **보안 로그인 (Secure Auth)**
+  - 비밀번호 저장 시 **PBKDF2-HMAC-SHA256 + Salt** 적용 (OpenSSL `PKCS5_PBKDF2_HMAC` 사용)
   - 반복 횟수(Iteration): **100,000회**
   - 단순 해시(MD5/SHA1 등) 대신, 연산 비용이 높은 KDF를 사용하여 크래킹 난이도 상승
 
@@ -203,7 +203,7 @@ chmod +x log-to-slack.sh
 ### 1. Transport Layer
 
 - TLS 1.3/1.2 강제 사용
-- 취약한 Cipher Suite 비활성화
+- 취약한 Cipher Suite (MD5, RC4 등) 비활성화
 - ECDHE 기반 키교환으로 Perfect Forward Secrecy 보장
 
 ### 2. Application Layer (WAF 룰)
