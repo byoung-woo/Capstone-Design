@@ -1,7 +1,7 @@
 # 🧠 AI Log Analyzer (2nd Layer Defense)
 
 ## 📌 개요
-이 모듈은 **C-WAF 웹 서버('4_waf_ai_server')**로부터 수신한 HTTP 요청 로그를 실시간으로 분석하는 **AI 기반 2차 방어 시스템**입니다.
+이 모듈은 **C-WAF 웹 서버(`4_waf_ai_server`)**로부터 수신한 HTTP 요청 로그를 실시간으로 분석하는 **AI 기반 2차 방어 시스템**입니다.
 **Autoencoder** 딥러닝 모델을 사용하여 정상 트래픽 패턴을 학습했으며, 이를 벗어나는 비정상(Anomaly) 요청을 탐지하여 관리자에게 알림을 보냅니다.
 
 ---
