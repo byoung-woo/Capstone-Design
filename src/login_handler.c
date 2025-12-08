@@ -2,6 +2,7 @@
 #include "login_handler.h"
 #include "db_manager.h"
 #include "response_builder.h"
+#include "utils.h"
 
 
 #include <stdio.h>

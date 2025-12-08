@@ -1,4 +1,4 @@
-// src/db_manager.h
+// src/db_manager.c
 #include <stdio.h>
 #include <sqlite3.h>
 #include "db_manager.h"

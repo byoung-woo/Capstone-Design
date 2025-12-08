@@ -46,7 +46,7 @@ typedef struct {
 // --- 함수 선언 ---
 void init_logger();
 void log_error(const char* message);
-void log_request(HttpRequest* request); // AI 모델 호환을 위해 logger.h와 선언 일치 (파라미터 1개)
+void log_request(HttpRequest* request); 
 void cleanup_logger();
 
 void init_log_queue();
@@ -73,7 +73,7 @@ void handle_signup(HttpRequest* request, HttpResponse* response);
 
 int is_attack_detected(HttpRequest* request);
 
-void url_decode(char *str); 
-char* get_form_value(const char* body, const char* key, char* output, size_t output_size);
+// void url_decode(char *str); 
+// char* get_form_value(const char* body, const char* key, char* output, size_t output_size);
 
 #endif

@@ -14,6 +14,7 @@
 #include "logger.h"
 #include "rule_checker.h"
 #include "ip_manager.h"
+#include "utils.h"
 
 // 과도한 요청 발생 시 429(Too Many Requests) 응답 메시지를 생성하는 함수
 void build_too_many_requests_response(HttpResponse* response) {

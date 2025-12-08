@@ -9,6 +9,7 @@
 #include "signup_handler.h"
 #include "db_manager.h"
 #include "response_builder.h"
+#include "utils.h"
 
 // 새로운 사용자를 데이터베이스에 추가하는 함수
 static int add_user_to_db(const char* username, const char* password) {

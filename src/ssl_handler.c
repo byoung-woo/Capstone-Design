@@ -1,4 +1,4 @@
-// ssl_handler.c
+// src/sl_handler.c
 // HTTPS 보안 통신을 위한 SSL/TLS 핸들러 모듈.
 // SSL/TLS 컨텍스트를 초기화하고, 인증서 및 개인 키를 로드합니다.
 

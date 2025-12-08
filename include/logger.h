@@ -7,7 +7,7 @@
 
 void init_logger();
 void log_error(const char* message);
-void log_request(HttpRequest* request); // log_request 함수의 파라미터를 AI 모델에 맞게 HttpRequest*로 변경 
+void log_request(HttpRequest* request); 
 void cleanup_logger();
 
 // AI 분석 서버로 로그를 비동기적으로 전송하기 위한 함수 선언

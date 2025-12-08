@@ -17,6 +17,7 @@
 #include "logger.h"
 #include "webserver.h"
 
+
 #define ANALYZER_IP "172.20.10.2" // AI 분석 서버 IP 주소
 #define ANALYZER_PORT 5140
 #define LOG_QUEUE_SIZE 100 // 로그 큐 최대 크기
