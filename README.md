@@ -124,12 +124,13 @@ sudo apt-get install gcc make libssl-dev libsqlite3-dev libcjson-dev jq
 ```bash
 cd 4_waf_ai_server/certs
 
-# 1) 서버 개인키 생성 (2048비트)
-openssl genrsa -out server.key 2048
+# 1) ECDSA 서버 개인키 생성 (prime256v1 = NIST P-256)
+openssl ecparam -name prime256v1 -genkey -noout -out server.key
 
-# 2) 서버 인증서 서명 요청(CSR) + 자체 서명 인증서 생성 (유효기간: 365일)
-openssl req -new -x509 -key server.key -out server.crt -days 365 \
+# 2) ECDSA + SHA256 자체 서명 인증서 생성
+openssl req -new -x509 -key server.key -out server.crt -days 365 -sha256 \
   -subj "/C=KR/ST=Daejeon/L=Daejeon/O=Capstone/OU=Security/CN=localhost"
+
 ```
 
 - 개발/테스트 환경에서는 `CN=localhost`로 사용해도 무관합니다.  
